@@ -2,6 +2,7 @@
 #define MAX_NUM_PGAES 1000
 #include <list>
 #include <stdio.h>
+#include <string.h>
 
 using namespace std;
 
@@ -49,7 +50,7 @@ void free_buffer_page(DB* db, Page* page) {
 
 FILE* get_fp(PageType page_type, DB* db) {
     FILE* f = NULL;
-    if (page_type == PageType::meta_page)
+    if (page_type == PageType::index_page)
         f = db->f_meta;
     else if (page_type == PageType::data_page)
         f = db->f_data;

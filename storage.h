@@ -14,12 +14,13 @@
 using namespace std;
 
 
-enum PageType {meta_page, data_page};
+enum PageType {index_page, data_page};
 
 typedef struct IndexItem {
     char key[MAX_KEY_SIZE];
     int page_no;
     int offset;
+    int data_size;
 } IndexItem;
 
 typedef struct Page {

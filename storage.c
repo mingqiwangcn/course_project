@@ -111,7 +111,7 @@ void read_index(DB* db){
         string map_key(key);
         item.page_no = page_no;
         item.offset = offset_in_page;
-        item.size = item_size;
+        item.data_size = item_size;
         
         index_map->insert(pair<string, IndexItem>(map_key, item));
 
@@ -135,7 +135,7 @@ void db_batch_put(DB* db, DataItem* db_items, int item_size) {
     int num_items= 0;
     int offset = 0;
     
-    memcpy(&offset, page->data+max_space, sizeof(int))
+    memcpy(&offset, page->data+max_space, sizeof(int));
 
     int size_len = sizeof(int); 
 
@@ -145,27 +145,28 @@ void db_batch_put(DB* db, DataItem* db_items, int item_size) {
         DataItem* cur_item = db_items + i;
         int request_size = size_len + cur_item->size;
         if (request_size <= space) {
-            memcpy(page->data+offset, cur_item->size, size_len);
-            offset += size_len; 
-            memcpy(page->data+offset, cur_item->value, cur_item->size); 
-
             IndexItem idx_item;
             strcpy(idx_item.key, cur_item->key);
             idx_item.page_no = db->total_data_pages;
             idx_item.offset = offset;
-            idx_item.size = cur_item->size;
-            
+            idx_item.data_size = cur_item->size;
             index_item_lst.push_back(idx_item);
+            
+            memcpy(page->data+offset, &(cur_item->size), size_len);
+            offset += size_len; 
+            memcpy(page->data+offset, cur_item->value, cur_item->size); 
 
             offset += cur_item->size;
             space -= request_size;
             num_items += 1;
-
             i += 1;
         } else {
             //fulli
             if (num_items <= 0)
                 throw "error";
+            
+            memset(page->data+PAGE_META_OFFSET, offset, sizeof(int));
+            memset(page->data+PAGE_META_OFFSET+sizeof(int), num_items, sizeof(int));
 
             append_page(PageType::data_page, db, page);
             
@@ -176,39 +177,61 @@ void db_batch_put(DB* db, DataItem* db_items, int item_size) {
         } 
     }
 
-    //append index page
-    
+    //write index page
     write_index_data(db, index_item_lst); 
      
 }
 
 void write_index_data(DB* db, list<IndexItem> index_item_lst){
+    Page* page = get_index_buffer_page(db);
     int item_count = index_item_lst.size();
     int tola_size = sizeof(IndexItem*) * item_count;
     IndexItem** p_idx_items= (IndexItem**)malloc(tola_size);
     list<IndexItem>::iterator itr;
-    int i = 0;
-    for (itr = index_item_lst.begin(); itr != index_item_lst.end(); ++itr) {
-        p_idx_items[i] = &(*itr);
-        i += 1;
-    }
-
-
-    Page* page = get_index_buffer_page(db);
-
-    int space = PAGE_META_OFFSET; 
+    int max_space = PAGE_META_OFFSET;
+    int space = max_space; 
     int num_items= 0;
     int offset = 0;
-
+    int i = 0;
     int index_item_size = MAX_KEY_SIZE + sizeof(int) * 3;
-    while (i < item_count) {
-        IndexItem* p_idx_item = p_idx_items[i];
+
+    memcpy(&offset, page->data+max_space, sizeof(int));
+
+    for (itr = index_item_lst.begin(); itr != index_item_lst.end(); ++itr) {
+        p_idx_items[i] = &(*itr);
+        
         if (index_item_size < space) {
-           memcpy(
-                  
+            memcpy(page->data+offset, p_idx_items[i]->key, MAX_KEY_SIZE);
+            offset += MAX_KEY_SIZE;
+            memcpy(page->data+offset, &(p_idx_items[i]->page_no), sizeof(int));
+            offset += sizeof(int);
+            memcpy(page->data+offset, &(p_idx_items[i]->offset), sizeof(int));
+            offset += sizeof(int);
+            memcpy(page->data+offset, &(p_idx_items[i]->data_size), sizeof(int));
+            offset += sizeof(int);
+
+            space -= index_item_size;
+            num_items += 1;
+            i += 1;
+
+        } else {
+            //page is full.
+            if (num_items <= 0)
+                throw "error";
+            
+            memset(page->data+PAGE_META_OFFSET, offset, sizeof(int));
+            memset(page->data+PAGE_META_OFFSET+sizeof(int), num_items, sizeof(int));
+
+            append_page(PageType::index_page, db, page);
+            
+            db->total_index_pages += 1; 
+            num_items = 0;
+            offset = 0;
+            space = max_space;
+
         }
     }
-    
+
 }
 
 
