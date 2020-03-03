@@ -7,17 +7,23 @@
 
 #define MAX_KEY_SIZE 116
 #define MAX_PATH_SIZE 200
-#define PAGE_SIZE 32768 //32M 
+#define PAGE_SIZE 32768 //32M
+#define META_PAGE_SIZE 4096
 
 using namespace std;
 
+
+enum PageType {meta_page, data_page};
+
 typedef struct IndexItem {
+    char key[MAX_KEY_SIZE];
     int page_no;
     int offset;
     int size;
 } IndexItem;
 
 typedef struct Page {
+    list<Page*>* container;
     char* data;
 } Page;
 
@@ -34,10 +40,7 @@ typedef struct DB {
     FILE* f_data;
     
     int total_index_pages;
-    int index_offset;
-
     int total_data_pages;
-    int data_offset;
 
     map<string, IndexItem>* index_map;
 
@@ -50,6 +53,7 @@ typedef struct DB {
 typedef struct DataItem {
     char key[MAX_KEY_SIZE];
     char* value;
+    int size;
 } DataItem;
 
 DB* db_open(char* path);
