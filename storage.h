@@ -8,7 +8,8 @@
 #define MAX_KEY_SIZE 116
 #define MAX_PATH_SIZE 200
 #define PAGE_SIZE 32768 //32M
-#define META_PAGE_SIZE 4096
+#define PAGE_META_OFFSET (PAGE_SIZE-sizeof(int)*2)
+#define META_PAGE_SIZE 4096 
 
 using namespace std;
 
@@ -19,7 +20,6 @@ typedef struct IndexItem {
     char key[MAX_KEY_SIZE];
     int page_no;
     int offset;
-    int size;
 } IndexItem;
 
 typedef struct Page {
@@ -30,7 +30,9 @@ typedef struct Page {
 typedef struct PageBuffer {
     list<Page*>* in_use_pages;
     list<Page*>* free_pages;
-
+    Page* data_buffer_page;
+    Page* index_buffer_page;
+    
 } PageBuffer;
 
 typedef struct DB {

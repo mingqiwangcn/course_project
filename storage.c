@@ -15,6 +15,8 @@ extern Page* read_page(PageType page_type, DB* db, int page_no);
 void append_page(PageType page_type, DB* db, Page* page);
 extern void free_buffer_page(DB* db, Page* page);
 void write_index_data(DB* db, list<IndexItem> index_item_lst);
+extern Page* get_data_buffer_page(DB* db);
+extern Page* get_index_buffer_page(DB* db);
 
 extern char* read_meta_page(DB* db);
 
@@ -30,7 +32,8 @@ void init_db(DB* db) {
     db->page_buffer = (PageBuffer*)malloc(sizeof(PageBuffer));
     db->page_buffer->in_use_pages = new list<Page*>();
     db->page_buffer->free_pages = new list<Page*>();
-    
+    db->page_buffer->data_buffer_page = NULL;
+    db->page_buffer->index_buffer_page = NULL;
 }
 
 DB* db_open(char* path) {
@@ -115,20 +118,35 @@ void read_index(DB* db){
     }
 }
 
+
+/*
+1) reserve the last 8 bytes in a data page to store meta info
+    [space_offset]: the start offset that contains no data items
+    [num_data_items]:number of items in this page
+2) data item is store as
+    [item_1_size][item_1_data][item_2_size][item_2_data]... 
+*/
 void db_batch_put(DB* db, DataItem* db_items, int item_size) {
-    int last_page_no = db->total_data_pages;
-    Page* page = read_page(PageType::data_page, db, last_page_no);
+    Page* page = get_data_buffer_page(db);
 
     int i = 0;
-    int space = PAGE_SIZE - sizeof(int); //reserve the last few bytes to store the number of items in the page
+    int max_space = PAGE_META_OFFSET;
+    int space = max_space; 
     int num_items= 0;
     int offset = 0;
+    
+    memcpy(&offset, page->data+max_space, sizeof(int))
+
+    int size_len = sizeof(int); 
 
     list<IndexItem> index_item_lst; 
-    
+     
     while (i < item_size) {
         DataItem* cur_item = db_items + i;
-        if (cur_item->size <= space) {
+        int request_size = size_len + cur_item->size;
+        if (request_size <= space) {
+            memcpy(page->data+offset, cur_item->size, size_len);
+            offset += size_len; 
             memcpy(page->data+offset, cur_item->value, cur_item->size); 
 
             IndexItem idx_item;
@@ -140,7 +158,7 @@ void db_batch_put(DB* db, DataItem* db_items, int item_size) {
             index_item_lst.push_back(idx_item);
 
             offset += cur_item->size;
-            space -= cur_item->size;
+            space -= request_size;
             num_items += 1;
 
             i += 1;
@@ -154,7 +172,7 @@ void db_batch_put(DB* db, DataItem* db_items, int item_size) {
             db->total_data_pages += 1; 
             num_items = 0;
             offset = 0;
-            space = PAGE_SIZE - sizeof(int);
+            space = max_space;
         } 
     }
 
@@ -162,23 +180,33 @@ void db_batch_put(DB* db, DataItem* db_items, int item_size) {
     
     write_index_data(db, index_item_lst); 
      
-    free_buffer_page(db, page);
 }
 
 void write_index_data(DB* db, list<IndexItem> index_item_lst){
     int item_count = index_item_lst.size();
     int tola_size = sizeof(IndexItem*) * item_count;
     IndexItem** p_idx_items= (IndexItem**)malloc(tola_size);
+    list<IndexItem>::iterator itr;
     int i = 0;
-    int last_page_no = db->total_index_pages;
-    Page* page = read_page(PageType::meta_page, db, last_page_no);
+    for (itr = index_item_lst.begin(); itr != index_item_lst.end(); ++itr) {
+        p_idx_items[i] = &(*itr);
+        i += 1;
+    }
 
-    int space = PAGE_SIZE - sizeof(int); //reserve the last few bytes to store the number of items in the page
+
+    Page* page = get_index_buffer_page(db);
+
+    int space = PAGE_META_OFFSET; 
     int num_items= 0;
     int offset = 0;
 
+    int index_item_size = MAX_KEY_SIZE + sizeof(int) * 3;
     while (i < item_count) {
-         
+        IndexItem* p_idx_item = p_idx_items[i];
+        if (index_item_size < space) {
+           memcpy(
+                  
+        }
     }
     
 }
