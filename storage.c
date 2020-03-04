@@ -2,9 +2,9 @@
 #include <string.h>
 #include <list>
 #include <map>
+#include <unistd.h>
 #include "storage.h"
 #define MAX_FULL_PATH_SIZE 300
-
 using namespace std;
 
 void join_path(char* full_path, char* path, char* file_name);
@@ -12,14 +12,13 @@ void read_meta(DB* db);
 void read_index(DB* db);
 extern Page* new_buffer_page(DB* db);
 extern Page* read_page(PageType page_type, DB* db, int page_no);
-void append_page(PageType page_type, DB* db, Page* page);
+extern void write_page(PageType page_type, DB* db, Page* page);
 extern void free_buffer_page(DB* db, Page* page);
 void write_index_data(DB* db, list<IndexItem> index_item_lst);
 extern Page* get_data_buffer_page(DB* db);
 extern Page* get_index_buffer_page(DB* db);
-
 extern char* read_meta_page(DB* db);
-
+extern void reset_page(Page* page);
 
 void init_db(DB* db) {
     db->path[0] = '\0';
@@ -32,13 +31,16 @@ void init_db(DB* db) {
     db->page_buffer = (PageBuffer*)malloc(sizeof(PageBuffer));
     db->page_buffer->in_use_pages = new list<Page*>();
     db->page_buffer->free_pages = new list<Page*>();
-    db->page_buffer->data_buffer_page = NULL;
-    db->page_buffer->index_buffer_page = NULL;
+}
+
+bool file_exist(char *filename)
+{
+    return (access(filename, F_OK ) != -1);
 }
 
 DB* db_open(char* path) {
     if (strlen(path) >= MAX_PATH_SIZE)
-        return NULL;
+        throw "db path is too long.";
 
     DB* db = (DB*)malloc(sizeof(DB));
     strcpy(db->path, path);
@@ -46,19 +48,27 @@ DB* db_open(char* path) {
     char meta_file_path[MAX_FULL_PATH_SIZE];
     char meta_file_name[20] = "db.meta";
     join_path(meta_file_path, path, meta_file_name);
-    db->f_meta = fopen(meta_file_path, "a+");
 
-    read_meta(db);
+    if (file_exist(meta_file_path)) {
+        db->f_meta = fopen(meta_file_path, "a+");
+        read_meta(db);
+    } else {
+        db->f_meta = fopen(meta_file_path, "a+");
+    }
 
     char index_file_path[MAX_FULL_PATH_SIZE];
     char index_file_name[20] = "db.index";
     join_path(index_file_path, path, index_file_name);
     
-    read_index(db);
+    db->f_index = fopen(index_file_path, "a+");
+    if (db->total_index_pages > 0) {
+        read_index(db);
+    }
 
     char data_file_path[MAX_FULL_PATH_SIZE];
     char data_file_name[20] = "db.data";
     join_path(data_file_path, path, data_file_name);
+
     db->f_data = fopen(data_file_path, "a+");
 
     return db;
@@ -66,8 +76,8 @@ DB* db_open(char* path) {
 
 void join_path(char* full_path, char* path, char* file_name) {
     strcpy(full_path, path);
-    strcpy(full_path, "/");
-    strcpy(full_path, file_name);
+    strcat(full_path, "/");
+    strcat(full_path, file_name);
 }
 
 void read_meta(DB* db) {
@@ -118,6 +128,30 @@ void read_index(DB* db){
     }
 }
 
+int get_page_offset(Page* page) {
+    int offset = 0;
+    memcpy(&offset, page->data+PAGE_META_OFFSET, sizeof(int));
+    return offset;
+}
+
+/*
+If the last data page is not full, return it, otherwise create a new data page to put
+*/
+Page* get_page_to_put(PageType page_type, DB* db, int total_pages, int min_space) {
+    Page* page = NULL;
+    if (total_pages == 0) {
+        page = new_buffer_page(db);
+    } else {
+        int last_page_no = total_pages - 1;
+        page = read_page(page_type, db, last_page_no);
+        int space = PAGE_META_OFFSET - get_page_offset(page);
+        if (space < min_space) {
+            page = new_buffer_page(db);
+        }
+    }
+    return page;
+}
+
 
 /*
 1) reserve the last 8 bytes in a data page to store meta info
@@ -126,19 +160,17 @@ void read_index(DB* db){
 2) data item is store as
     [item_1_size][item_1_data][item_2_size][item_2_data]... 
 */
-void db_batch_put(DB* db, DataItem* db_items, int item_size) {
-    Page* page = get_data_buffer_page(db);
+void db_put(DB* db, DataItem* db_items, int item_size) {
+    int size_len = sizeof(int); 
+    int min_space = size_len + db_items[0].size;
+    Page* page = get_page_to_put(PageType::data_page, db, db->total_data_pages, min_space);
 
     int i = 0;
     int max_space = PAGE_META_OFFSET;
     int space = max_space; 
     int num_items= 0;
-    int offset = 0;
+    int offset = get_page_offset(page);
     
-    memcpy(&offset, page->data+max_space, sizeof(int));
-
-    int size_len = sizeof(int); 
-
     list<IndexItem> index_item_lst; 
      
     while (i < item_size) {
@@ -168,9 +200,12 @@ void db_batch_put(DB* db, DataItem* db_items, int item_size) {
             memset(page->data+PAGE_META_OFFSET, offset, sizeof(int));
             memset(page->data+PAGE_META_OFFSET+sizeof(int), num_items, sizeof(int));
 
-            append_page(PageType::data_page, db, page);
-            
-            db->total_data_pages += 1; 
+            write_page(PageType::data_page, db, page);
+            if (page->page_no == -1) {
+                db->total_data_pages += 1; 
+            }
+
+            reset_page(page);
             num_items = 0;
             offset = 0;
             space = max_space;
@@ -183,7 +218,9 @@ void db_batch_put(DB* db, DataItem* db_items, int item_size) {
 }
 
 void write_index_data(DB* db, list<IndexItem> index_item_lst){
-    Page* page = get_index_buffer_page(db);
+    int index_item_size = MAX_KEY_SIZE + sizeof(int) * 3;
+    int min_space = index_item_size;
+    Page* page = get_page_to_put(PageType::index_page, db, db->total_index_pages, min_space);
     int item_count = index_item_lst.size();
     int tola_size = sizeof(IndexItem*) * item_count;
     IndexItem** p_idx_items= (IndexItem**)malloc(tola_size);
@@ -191,11 +228,8 @@ void write_index_data(DB* db, list<IndexItem> index_item_lst){
     int max_space = PAGE_META_OFFSET;
     int space = max_space; 
     int num_items= 0;
-    int offset = 0;
+    int offset = get_page_offset(page);
     int i = 0;
-    int index_item_size = MAX_KEY_SIZE + sizeof(int) * 3;
-
-    memcpy(&offset, page->data+max_space, sizeof(int));
 
     for (itr = index_item_lst.begin(); itr != index_item_lst.end(); ++itr) {
         p_idx_items[i] = &(*itr);
@@ -222,13 +256,14 @@ void write_index_data(DB* db, list<IndexItem> index_item_lst){
             memset(page->data+PAGE_META_OFFSET, offset, sizeof(int));
             memset(page->data+PAGE_META_OFFSET+sizeof(int), num_items, sizeof(int));
 
-            append_page(PageType::index_page, db, page);
-            
-            db->total_index_pages += 1; 
+            write_page(PageType::index_page, db, page);
+            if (page->page_no == -1) { 
+                db->total_index_pages += 1;
+            }
+            reset_page(page);
             num_items = 0;
             offset = 0;
             space = max_space;
-
         }
     }
 

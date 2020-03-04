@@ -6,6 +6,13 @@
 
 using namespace std;
 
+void reset_page(Page* page) {
+    page->page_no = -1;
+    int offset = PAGE_META_OFFSET;
+    int size = sizeof(int) * 2;
+    memset(page->data+offset, 0, size);
+}
+
 Page* new_buffer_page(DB* db) {
     Page* page = NULL;
 
@@ -28,21 +35,10 @@ Page* new_buffer_page(DB* db) {
     }
 
     page->container = in_use_pages;
+    reset_page(page);
     return page;
 }
 
-Page* get_data_buffer_page(DB* db) {
-    if (db->page_buffer->data_buffer_page == NULL)
-        db->page_buffer->data_buffer_page =  new_buffer_page(db);
-    return db->page_buffer->data_buffer_page;
-}
-
-
-Page* get_index_buffer_page(DB* db) {
-    if (db->page_buffer->index_buffer_page == NULL)
-        db->page_buffer->index_buffer_page =  new_buffer_page(db);
-    return db->page_buffer->index_buffer_page;
-}
 
 void free_buffer_page(DB* db, Page* page) {
     page->container->remove(page);
@@ -63,19 +59,15 @@ Page* read_page(PageType page_type, DB* db, int page_no) {
     fseek(f, 0, SEEK_SET); 
     Page* page = new_buffer_page(db);
     fread(page->data, 1, PAGE_SIZE, f);
+    page->page_no = page_no;
     return page;
 }
 
 
-void append_page(PageType page_type, DB* db, Page* page) {
+void write_page(PageType page_type, DB* db, Page* page) {
     FILE* f = get_fp(page_type, db);
     fseek(f, 0, SEEK_END);  
     fwrite(page->data, 1, PAGE_SIZE, f);
-
-    int offset = PAGE_META_OFFSET;
-    int size = sizeof(int) * 2;
-    memset(page->data+offset, 0, size);
-
 }
 
 
