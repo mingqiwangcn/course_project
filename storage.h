@@ -1,7 +1,7 @@
 #ifndef STORAGE_H
 #define STORAGE_H
 #include <stdio.h>
-#include <map>
+#include <unordered_map>
 #include <list>
 #define MAX_KEY_SIZE 116
 #define MAX_PATH_SIZE 200
@@ -20,14 +20,15 @@ typedef struct IndexItem {
 } IndexItem;
 
 typedef struct Page {
-    list<Page*>* container;
     char* data;
     int page_no;
 } Page;
 
 typedef struct PageBuffer {
-    list<Page*>* in_use_pages;
-    list<Page*>* free_pages;
+    int capacity;
+    unordered_map<int, Page*>* page_map;
+    list<Page*> free_pages;
+    list<Page*> dirty_pages;
 } PageBuffer;
 
 typedef struct DB {
@@ -39,10 +40,10 @@ typedef struct DB {
     int total_index_pages;
     int total_data_pages;
 
-    map<string, IndexItem>* index_map;
+    unordered_map<string, IndexItem>* index_map;
 
-    PageBuffer* page_buffer;
-
+    PageBuffer* index_buffer;
+    PageBuffer* data_buffer;
      
 } DB;
 

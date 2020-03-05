@@ -1,73 +1,98 @@
 #include "storage.h"
-#define MAX_NUM_PGAES 1000
 #include <list>
 #include <stdio.h>
 #include <string.h>
 
 using namespace std;
 
+int get_page_offset(Page* page) {
+    int offset = 0;
+    memcpy(&offset, page->data+PAGE_META_OFFSET, sizeof(int));
+    return offset;
+}
+
+void set_page_offset(Page* page, int offset) {
+    memcpy(page->data+PAGE_META_OFFSET, &offset, sizeof(int));
+}
+
+bool fit_page(Page* page, int space_needed) {
+    int space = PAGE_META_OFFSET - get_page_offset(page);
+    return space >= space_needed;
+}
+
 void reset_page(Page* page) {
     page->page_no = -1;
-    int offset = PAGE_META_OFFSET;
-    int size = sizeof(int) * 2;
-    memset(page->data+offset, 0, size);
+    set_page_offset(page, 0)
 }
 
-Page* new_buffer_page(DB* db) {
+Page* new_page() {
+    Page* page = (Page*)malloc(sizeof(Page*));
+    page->data = (char*)malloc(PAGE_SIZE);
+    reset_page(page); 
+    return page;
+}
+
+Page* request_new_page(PageBuffer* buffer) {
     Page* page = NULL;
-
-    list<Page*>* in_use_pages = db->page_buffer->in_use_pages;
-    list<Page*>* free_pages = db->page_buffer->free_pages;
-
-    if (free_pages->size() > 0) {
-        page = free_pages->front();
-        free_pages->pop_front();
-        in_use_pages->push_back(page);
-
+    if (buffer->free_pages.size() > 0) {
+       page = buffer->free_pages.front();
+       buffer->free_pages.pop_front(); 
     } else {
-        int buffer_count = free_pages->size() + in_use_pages->size();
-        if (buffer_count >= MAX_NUM_PGAES) {
-            throw "Buffer is full and all pages are in use."; 
+        if (buffer->page_map->size() == buffer->capacity) {
+            throw "buffer is full.";
         }
-        page = (Page*)malloc(sizeof(Page));
-        page->data = (char*)malloc(sizeof(PAGE_SIZE));
-        in_use_pages->push_back(page);
+        page = new_page();
+    }
+    return page;
+}
+
+Page* read_page(PageBuffer* buffer, FILE* f, int total_pages, int page_no) {
+    if (page_no < 0 || page_no >= total_pages) {
+        throw "invalid page_no";
     }
 
-    page->container = in_use_pages;
-    reset_page(page);
-    return page;
-}
-
-
-void free_buffer_page(DB* db, Page* page) {
-    page->container->remove(page);
-}
-
-FILE* get_fp(PageType page_type, DB* db) {
-    FILE* f = NULL;
-    if (page_type == PageType::index_page)
-        f = db->f_meta;
-    else if (page_type == PageType::data_page)
-        f = db->f_data;
-    else {}
-    return f;
-}
-
-Page* read_page(PageType page_type, DB* db, int page_no) {
-    FILE* f = get_fp(page_type, db);
-    fseek(f, 0, SEEK_SET); 
-    Page* page = new_buffer_page(db);
+    Page* page = NULL;
+    unordered_map<int, Page*>::iterator itr = buffer->page_map.find(page_no);
+    if (itr != buffer->page_map.end()) {
+        page = *itr;
+        return page;
+    }
+    page = request_new_page(buffer);
+    int offset = page_no * PAGE_SIZE;
+    fseek(f, offset, SEEK_SET);
     fread(page->data, 1, PAGE_SIZE, f);
     page->page_no = page_no;
+    buffer->page_map[page_no] = page;
     return page;
 }
 
 
-void write_page(PageType page_type, DB* db, Page* page) {
-    FILE* f = get_fp(page_type, db);
-    fseek(f, 0, SEEK_END);  
-    fwrite(page->data, 1, PAGE_SIZE, f);
+Page* read_index_page(DB* db, int page_no) {
+    Page* page = read_page(db->index_buffer, db->f_index, db->total_index_pages, page_no);
+    return page;
+}
+
+Page* read_data_page(DB* db, int page_no) {
+    Page* page = read_page(db->data_buffer, db->f_data, db->total_data_pages, page_no);
+    return page;
+}
+
+
+void write_index_page(DB* db, Page* page) {
+    write_page(db->index_buffer, page);
+}
+
+void write_data_page(DB* db, Page* page) {
+    write_page(db->data_buffer, page);
+}
+
+void append_page(PageBuffer* buffer, Page* page) {
+    
+    buffer->dirty_pages.push_back(page);
+}
+
+void commit_write() {
+    
 }
 
 

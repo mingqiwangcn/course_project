@@ -5,6 +5,9 @@
 #include <unistd.h>
 #include "storage.h"
 #define MAX_FULL_PATH_SIZE 300
+#define MAX_INDEX_BUFFER_SIZE 100
+#define MAX_DATA_BUFFER_SIZE  1000
+
 using namespace std;
 
 void join_path(char* full_path, char* path, char* file_name);
@@ -20,6 +23,15 @@ extern Page* get_index_buffer_page(DB* db);
 extern char* read_meta_page(DB* db);
 extern void reset_page(Page* page);
 
+void new_page_buffer(int capacity) {
+    PageBuffer* buffer = (PageBuffer*)malloc(sizeof(PageBuffer));
+    buffer->capacity = capacity;
+    buffer->page_map = new map<int, Page*>();
+    buffer->free_pages = new list<Page*>();
+    buffer->dirty_pages = new list<Page*>();
+    return buffer;
+}
+
 void init_db(DB* db) {
     db->path[0] = '\0';
     db->f_meta = NULL;
@@ -28,9 +40,8 @@ void init_db(DB* db) {
     db->total_index_pages = 0;
     db->total_data_pages = 0;
     db->index_map = NULL;
-    db->page_buffer = (PageBuffer*)malloc(sizeof(PageBuffer));
-    db->page_buffer->in_use_pages = new list<Page*>();
-    db->page_buffer->free_pages = new list<Page*>();
+    db->index_buffer = new_page_buffer(MAX_INDEX_BUFFER_SIZE);
+    db->page_buffer = new_page_buffer(MAX_DATA_BUFFER_SIZE);
 }
 
 bool file_exist(char *filename)
@@ -128,11 +139,8 @@ void read_index(DB* db){
     }
 }
 
-int get_page_offset(Page* page) {
-    int offset = 0;
-    memcpy(&offset, page->data+PAGE_META_OFFSET, sizeof(int));
-    return offset;
-}
+
+
 
 /*
 If the last data page is not full, return it, otherwise create a new data page to put
@@ -162,8 +170,20 @@ Page* get_page_to_put(PageType page_type, DB* db, int total_pages, int min_space
 */
 void db_put(DB* db, DataItem* db_items, int item_size) {
     int size_len = sizeof(int); 
-    int min_space = size_len + db_items[0].size;
-    Page* page = get_page_to_put(PageType::data_page, db, db->total_data_pages, min_space);
+    Page* page = NULL;
+    if (db->total_data_pages == 0) {
+        page = request_new_page(db->data_buffer);
+    } else {
+        int last_page_no = db->total_data_pages - 1;
+        Page* last_page = read_data_page(db, last_page_no);
+        int min_space = size_len + db_items[0].size;
+        bool fit_flag = fit_page(last_page, min_space);
+        if (fit_flag) {
+            page = last_page;
+        } else {
+            page = request_new_page(db->data_buffer);
+        }
+    }
 
     int i = 0;
     int max_space = PAGE_META_OFFSET;
