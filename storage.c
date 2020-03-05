@@ -13,22 +13,24 @@ using namespace std;
 void join_path(char* full_path, char* path, char* file_name);
 void read_meta(DB* db);
 void read_index(DB* db);
-extern Page* new_buffer_page(DB* db);
-extern Page* read_page(PageType page_type, DB* db, int page_no);
-extern void write_page(PageType page_type, DB* db, Page* page);
-extern void free_buffer_page(DB* db, Page* page);
-void write_index_data(DB* db, list<IndexItem> index_item_lst);
-extern Page* get_data_buffer_page(DB* db);
-extern Page* get_index_buffer_page(DB* db);
-extern char* read_meta_page(DB* db);
+extern int get_page_offset(Page* page);
+extern void set_page_offset(Page* page, int offset);
+extern bool fit_page(Page* page, int space_needed);
 extern void reset_page(Page* page);
+extern void flush_written_pages(PageBuffer* buffer, FILE* f, bool keep_last);
+extern Page* request_new_page(DB* db, PageBuffer* buffer, FILE* f);
+extern Page* read_index_page(DB* db, int page_no);
+extern Page* read_data_page(DB* db, int page_no);
+extern Page* read_meta_page(FILE* f); 
+extern void write_meta_page(FILE* f, Page* page); 
 
-void new_page_buffer(int capacity) {
+
+PageBuffer* new_page_buffer(int capacity) {
     PageBuffer* buffer = (PageBuffer*)malloc(sizeof(PageBuffer));
     buffer->capacity = capacity;
-    buffer->page_map = new map<int, Page*>();
+    buffer->page_map = new unordered_map<int, Page*>();
     buffer->free_pages = new list<Page*>();
-    buffer->dirty_pages = new list<Page*>();
+    buffer->written_pages = new list<Page*>();
     return buffer;
 }
 
@@ -39,9 +41,10 @@ void init_db(DB* db) {
     db->f_data = NULL;
     db->total_index_pages = 0;
     db->total_data_pages = 0;
+    db->meta_page = NULL;
     db->index_map = NULL;
     db->index_buffer = new_page_buffer(MAX_INDEX_BUFFER_SIZE);
-    db->page_buffer = new_page_buffer(MAX_DATA_BUFFER_SIZE);
+    db->data_buffer = new_page_buffer(MAX_DATA_BUFFER_SIZE);
 }
 
 bool file_exist(char *filename)
@@ -92,12 +95,38 @@ void join_path(char* full_path, char* path, char* file_name) {
 }
 
 void read_meta(DB* db) {
-    char* meta = read_meta_page(db);
+    db->meta_page = read_meta_page(db->f_meta);
+    char* meta = db->meta_page->data;
     int offset = 0;
     memcpy(&(db->total_index_pages), meta+offset, sizeof(int));
     offset += sizeof(int);
     memcpy(&(db->total_data_pages), meta+offset, sizeof(int));
     
+}
+
+bool is_meta_changed(DB* db) {
+    int offset = 0;
+    int index_pages = 0;
+    char* meta = db->meta_page->data;
+    memcpy(&index_pages, meta+offset, sizeof(int));
+    offset += sizeof(int);
+    if (index_pages != db->total_index_pages)
+        return true;
+    int data_pages = 0;
+    memcpy(&data_pages, meta+offset, sizeof(int));
+    if (data_pages != db->total_data_pages) {
+        return true;
+    }
+    return false;
+}
+
+void write_meta(DB* db) {
+    int offset = 0;
+    char* meta = db->meta_page->data;
+    memcpy(meta+offset, &(db->total_index_pages), sizeof(int));
+    offset += sizeof(int);
+    memcpy(meta+offset, &(db->total_data_pages), sizeof(int));
+    write_meta_page(db->f_meta, db->meta_page);
 }
 
 void read_index(DB* db){
@@ -108,11 +137,9 @@ void read_index(DB* db){
     char* meta =(char*) malloc(size);
     fread(meta, 1, size, f);
     int offset = 0;
-    map<string, IndexItem>* index_map = new map<string, IndexItem>();
-    db->index_map = index_map;
+    db->index_map = new unordered_map<string, IndexItem>();
     while (offset < size) {
         IndexItem item;
-        
         char* key = (char*)malloc(sizeof(MAX_KEY_SIZE));
         memcpy(key, meta+offset, MAX_KEY_SIZE);
         offset += MAX_KEY_SIZE;
@@ -134,7 +161,7 @@ void read_index(DB* db){
         item.offset = offset_in_page;
         item.data_size = item_size;
         
-        index_map->insert(pair<string, IndexItem>(map_key, item));
+        db->index_map->insert(pair<string, IndexItem>(map_key, item));
 
     }
 }
@@ -227,6 +254,8 @@ void db_put(DB* db, DataItem* db_items, int item_size) {
 
     //write index page
     write_index(db, index_item_lst); 
+
+    write_meta(db);
      
 }
 
@@ -312,5 +341,8 @@ void write_index(DB* db, list<IndexItem*> index_item_lst){
 
 
 void db_close(DB* db) {
+    if (is_meta_changed(db*)) {
+        write_meta(db);
+    }
     return;
 }

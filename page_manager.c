@@ -75,11 +75,9 @@ Page* request_new_page(DB* db, PageBuffer* buffer, FILE* f) {
             if (buffer->written_pages.size() > 0) {
                 //write to disk for more free pages
                 flush_written_pages(buffer, f, true)
-                
                 //allocate one from free_pages
                 page = buffer->free_pages.front();
                 buffer->free_pages.pop_front();
-
             } else {
                 throw "buffer is full.";
             }
@@ -120,19 +118,22 @@ Page* read_data_page(DB* db, int page_no) {
 }
 
 
-char* read_meta_page(DB* db) {
-    FILE* f = db->f_meta;
-    fseek(f, 0, SEEK_SET);
-    char* meta_page = (char*)malloc(sizeof(META_PAGE_SIZE));
-    fread(meta_page, 1, META_PAGE_SIZE, f);
-    return meta_page;
+Page* new_meta_page() {
+    Page* page = (Page*)malloc(sizeof(Page*));
+    page->data = (char*)malloc(META_PAGE_SIZE);
+    page->page_no = 0;
 }
 
-
-void write_meta_page(DB* db, char* meta_page) {
-    FILE* f = db->f_meta;
+Page* read_meta_page(FILE* f) {
     fseek(f, 0, SEEK_SET);
-    fwrite(meta_page, 1, META_PAGE_SIZE, f); 
+    Page* page = new_meta_page()
+    fread(page->data, 1, META_PAGE_SIZE, f);
+    return page;
+}
+
+void write_meta_page(FILE* f, Page* page) {
+    fseek(f, 0, SEEK_SET);
+    fwrite(page->data, 1, META_PAGE_SIZE, f);
 }
 
 

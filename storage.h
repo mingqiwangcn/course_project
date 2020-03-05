@@ -27,8 +27,8 @@ typedef struct Page {
 typedef struct PageBuffer {
     int capacity;
     unordered_map<int, Page*>* page_map;
-    list<Page*> free_pages;
-    list<Page*> written_pages;
+    list<Page*>* free_pages;
+    list<Page*>* written_pages;
 } PageBuffer;
 
 typedef struct DB {
@@ -39,11 +39,13 @@ typedef struct DB {
     
     int total_index_pages;
     int total_data_pages;
+    Page* meta_page;
 
     unordered_map<string, IndexItem>* index_map;
 
     PageBuffer* index_buffer;
     PageBuffer* data_buffer;
+    
      
 } DB;
 
