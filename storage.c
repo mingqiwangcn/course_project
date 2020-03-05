@@ -51,6 +51,7 @@ DB* db_open(char* path) {
         throw "db path is too long.";
 
     DB* db = (DB*)malloc(sizeof(DB));
+    init_db(db);
     strcpy(db->path, path);
 
     char meta_file_path[MAX_FULL_PATH_SIZE];
@@ -223,7 +224,7 @@ void db_put(DB* db, DataItem* db_items, int item_size) {
              
             set_page_offset(page, offset);
             //set num of items in this page
-            memset(page->data+PAGE_META_OFFSET+sizeof(int), num_items, sizeof(int));
+            memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &num_items, sizeof(int));
             //put this page in written_pages queue
             db->data_buffer->written_pages->push_back(page);
             db->total_data_pages += 1;  
@@ -237,7 +238,7 @@ void db_put(DB* db, DataItem* db_items, int item_size) {
 
     if (num_items > 0) {
         set_page_offset(page, offset);
-        memset(page->data+PAGE_META_OFFSET+sizeof(int), num_items, sizeof(int));
+        memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &num_items, sizeof(int));
         db->data_buffer->written_pages->push_back(page);
         db->total_data_pages += 1;
     }
@@ -307,7 +308,7 @@ void write_index(DB* db, list<IndexItem*> index_item_lst){
                 throw "error";
             
             set_page_offset(page, offset);
-            memset(page->data+PAGE_META_OFFSET+sizeof(int), num_items, sizeof(int));
+            memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &num_items, sizeof(int));
 
             db->index_buffer->written_pages->push_back(page);
             db->total_index_pages += 1;  
@@ -324,7 +325,7 @@ void write_index(DB* db, list<IndexItem*> index_item_lst){
 
     if (num_items > 0) {
         set_page_offset(page, offset);
-        memset(page->data+PAGE_META_OFFSET+sizeof(int), num_items, sizeof(int));
+        memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &num_items, sizeof(int));
         db->index_buffer->written_pages->push_back(page);
         db->total_index_pages += 1;
     }

@@ -20,7 +20,6 @@ void test_put() {
         p_items[i].value = (char*)malloc(M);
         memset(p_items[i].value, C, M);
         p_items[i].value[M-1] = '\0';
-        printf("%s", p_items[i].value);
         p_items[i].size = M;
     }
 
