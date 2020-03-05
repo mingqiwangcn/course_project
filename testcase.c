@@ -8,8 +8,7 @@ void test_put() {
     int N = 10000;
     int i = 0;
     
-    time_t t;
-    srand((unsigned)time(&t));
+    srand(1);
 
     DataItem* p_items = (DataItem*)malloc(sizeof(DataItem)*N);
     for (i = 0; i < N; i++) {
@@ -20,10 +19,12 @@ void test_put() {
         char C = (rand() % 26) + 'a';
         p_items[i].value = (char*)malloc(M);
         memset(p_items[i].value, C, M);
+        p_items[i].value[M-1] = '\0';
+        printf("%s", p_items[i].value);
         p_items[i].size = M;
     }
 
-    db_batch_put(db, p_items, N);
+    db_put(db, p_items, N);
 
     db_close(db);
 }
