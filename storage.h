@@ -28,7 +28,7 @@ typedef struct PageBuffer {
     int capacity;
     unordered_map<int, Page*>* page_map;
     list<Page*> free_pages;
-    list<Page*> dirty_pages;
+    list<Page*> written_pages;
 } PageBuffer;
 
 typedef struct DB {

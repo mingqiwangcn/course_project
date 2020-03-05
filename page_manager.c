@@ -32,16 +32,58 @@ Page* new_page() {
     return page;
 }
 
-Page* request_new_page(PageBuffer* buffer) {
+void flush_written_pages(PageBuffer* buffer, FILE* f, bool keep_last) {
+    list<Page*> written_pages = buffer->written_pages;
+    if flush_num = written_pages.size();
+    if (keep_last) {
+        flush_num -= 1;
+    }
+    if (flush_num == 0)
+        return;
+
+    list<Page*>::iterator itr;
+    Page* first_page = written_pages.front();
+    int offset = first_page->page_no * PAGE_SIZE;
+    fseek(f, 0, SEEK_SET);
+    
+    int i = 0;
+    for (itr = written_pages.begin(); i < flush_num; ++itr) {
+        Page* page = *itr;
+        fwrite(page->data, 1, PAGE_SIZE, f);
+        buffer->free_pages.push_back(page);
+        i += 1;
+    }
+    
+    i = 0;
+    while (i < flush_num) {
+        written_pages.pop_front();
+    }
+
+}
+
+
+Page* request_new_page(DB* db, PageBuffer* buffer, FILE* f) {
     Page* page = NULL;
     if (buffer->free_pages.size() > 0) {
        page = buffer->free_pages.front();
        buffer->free_pages.pop_front(); 
     } else {
-        if (buffer->page_map->size() == buffer->capacity) {
-            throw "buffer is full.";
+        int num_allocated = buffer->page_map->size();
+        if (num_allocated < buffer->capacity) {
+            page = new_page();
+        } else {
+            if (buffer->written_pages.size() > 0) {
+                //write to disk for more free pages
+                flush_written_pages(buffer, f, true)
+                
+                //allocate one from free_pages
+                page = buffer->free_pages.front();
+                buffer->free_pages.pop_front();
+
+            } else {
+                throw "buffer is full.";
+            }
         }
-        page = new_page();
     }
     return page;
 }
@@ -75,24 +117,6 @@ Page* read_index_page(DB* db, int page_no) {
 Page* read_data_page(DB* db, int page_no) {
     Page* page = read_page(db->data_buffer, db->f_data, db->total_data_pages, page_no);
     return page;
-}
-
-
-void write_index_page(DB* db, Page* page) {
-    write_page(db->index_buffer, page);
-}
-
-void write_data_page(DB* db, Page* page) {
-    write_page(db->data_buffer, page);
-}
-
-void append_page(PageBuffer* buffer, Page* page) {
-    
-    buffer->dirty_pages.push_back(page);
-}
-
-void commit_write() {
-    
 }
 
 
