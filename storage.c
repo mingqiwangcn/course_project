@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 #include <list>
 #include <map>
 #include <unistd.h>
@@ -176,16 +177,18 @@ DataItem* get_data_item(Page* page, int offset, int data_size) {
     return item;
 }
 
-DataItem** db_get(DB*db, char** keys, int key_size) {
-    DataItem** data_item_lst = (DataItem**)malloc(sizeof(DataItem*)*key_size);
-    unordered_map<string, IndexItem*>::iterator itr;
-    for (int i = 0; i < key_size; i++ ) {
-        string map_key(keys[i]);
-        itr = db->index_map->find(map_key);
-        if (itr != db->index_map->end()) {
-            IndexItem* index_item = itr->second;
+vector<DataItem*>* db_get(DB*db, vector<string>* key_lst) {
+    vector<DataItem*>* data_item_lst = new vector<DataItem*>(key_lst->size());
+    vector<string>::iterator lst_itr;
+    unordered_map<string, IndexItem*>::iterator map_itr;
+    for (lst_itr = key_lst->begin(); lst_itr != key_lst->end(); ++lst_itr) {
+        string map_key = *lst_itr;
+        map_itr = db->index_map->find(map_key);
+        if (map_itr != db->index_map->end()) {
+            IndexItem* index_item = map_itr->second;
             Page* data_page = read_data_page(db, index_item->page_no);
-            data_item_lst[i] = get_data_item(data_page, index_item->offset, index_item->data_size);
+            DataItem* data_item = get_data_item(data_page, index_item->offset, index_item->data_size);
+            data_item_lst->push_back(data_item);
         } else {
            throw "key not found."; 
         }
@@ -200,7 +203,8 @@ DataItem** db_get(DB*db, char** keys, int key_size) {
 2) data item is store as
     [item_1_size][item_1_data][item_2_size][item_2_data]... 
 */
-void db_put(DB* db, DataItem* db_items, int item_size) {
+void db_put(DB* db, vector<DataItem*>* data_items) {
+    int item_size = data_items->size();
     int size_len = sizeof(int);
     int new_page_no = db->total_data_pages; 
     Page* page = NULL;
@@ -209,7 +213,7 @@ void db_put(DB* db, DataItem* db_items, int item_size) {
     } else {
         int last_page_no = db->total_data_pages - 1;
         Page* last_page = read_data_page(db, last_page_no);
-        int min_space = size_len + db_items[0].size;
+        int min_space = size_len + (*data_items)[0]->size;
         bool fit_flag = fit_page(last_page, min_space);
         if (fit_flag) {
             page = last_page;
@@ -224,7 +228,7 @@ void db_put(DB* db, DataItem* db_items, int item_size) {
     int offset = get_page_offset(page);
     list<IndexItem*>* index_item_lst = new list<IndexItem*>(); 
     while (i < item_size) {
-        DataItem* cur_item = db_items + i;
+        DataItem* cur_item = (*data_items)[i];
         int request_size = size_len + cur_item->size;
         if (request_size <= space) {
             IndexItem* idx_item = create_IndexItem(cur_item->key, page->page_no, offset, cur_item->size);

@@ -2,6 +2,7 @@
 #define STORAGE_H
 #include <stdio.h>
 #include <unordered_map>
+#include <vector>
 #include <list>
 #define MAX_KEY_SIZE 116
 #define MAX_PATH_SIZE 200
@@ -60,9 +61,9 @@ typedef struct DataItem {
 
 DB* db_open(char* path);
 
-DataItem** db_get(DB* db, char** keys, int key_size);
+vector<DataItem*>* db_get(DB*db, vector<string>* key_lst);
 
-void db_put(DB* db, DataItem* db_items, int item_size);
+void db_put(DB* db, vector<DataItem*>* data_items);
 
 void db_close(DB* db);
 
