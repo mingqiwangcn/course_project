@@ -178,7 +178,7 @@ DataItem* get_data_item(Page* page, int offset, int data_size) {
 }
 
 vector<DataItem*>* db_get(DB*db, vector<string>* key_lst) {
-    vector<DataItem*>* data_item_lst = new vector<DataItem*>(key_lst->size());
+    vector<DataItem*>* data_item_lst = new vector<DataItem*>();
     vector<string>::iterator lst_itr;
     unordered_map<string, IndexItem*>::iterator map_itr;
     for (lst_itr = key_lst->begin(); lst_itr != key_lst->end(); ++lst_itr) {
@@ -188,6 +188,7 @@ vector<DataItem*>* db_get(DB*db, vector<string>* key_lst) {
             IndexItem* index_item = map_itr->second;
             Page* data_page = read_data_page(db, index_item->page_no);
             DataItem* data_item = get_data_item(data_page, index_item->offset, index_item->data_size);
+            strcpy(data_item->key, map_key.c_str());
             data_item_lst->push_back(data_item);
         } else {
            throw "key not found."; 

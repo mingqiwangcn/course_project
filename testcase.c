@@ -9,7 +9,7 @@ void test_put() {
     DB* db = db_open(path);  
     int N = 10000;
     int i = 0;
-    
+    int j = 0;
     srand(1);
 
     DataItem* p_items = (DataItem*)malloc(sizeof(DataItem)*N);
@@ -25,9 +25,13 @@ void test_put() {
         key_lst.push_back(item_key);
 
         int M =  rand() % 2000;
-        char C = (rand() % 26) + 'a';
+
         p_items[i].value = (char*)malloc(M);
-        memset(p_items[i].value, C, M);
+
+        for (j = 0; j < M; j++) {
+            p_items[i].value[j] = (rand() % 128);
+        }
+
         p_items[i].value[M-1] = '\0';
         p_items[i].size = M;
 
@@ -44,14 +48,15 @@ void test_put() {
     db = db_open(path);
     std::cout << "total items: " << db->total_items << std::endl;
    
-    int j = 0; 
     for (i=0; i < 100; i++) {
         vector<string> query_key_lst;
         for (j = 0; j < 100; j++) {
             int pos = rand() % N;
             query_key_lst.push_back(key_lst[pos]);
         }
+
         vector<DataItem*>* query_result = db_get(db, &query_key_lst);
+        
         for (j = 0; j < 100; j++) {
             string map_key = query_key_lst[j];
             DataItem* item_1 = item_map.find(map_key)->second;
