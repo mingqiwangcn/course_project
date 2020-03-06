@@ -52,7 +52,6 @@ void free_page(Page* page) {
     free(page);
 }
 
-
 void free_page_list(list<Page*>* page_lst) {
     list<Page*>::iterator itr;
     for (itr = page_lst->begin(); itr != page_lst->end(); ++itr) {
@@ -72,34 +71,25 @@ void free_page_buffer(PageBuffer* buffer) {
     delete buffer->written_pages;
     free(buffer);
 }
-void flush_written_pages(PageBuffer* buffer, FILE* f, bool keep_last) {
-    list<Page*>* written_pages = buffer->written_pages;
-    int flush_num = written_pages->size();
-    if (keep_last) {
-        flush_num -= 1;
-    }
-    if (flush_num == 0)
-        return;
 
+void flush_written_pages(PageBuffer* buffer, FILE* f) {
+    list<Page*>* written_pages = buffer->written_pages;
     list<Page*>::iterator itr;
+    unordered_map<int, Page*>::iterator map_itr;
     Page* first_page = written_pages->front();
     int offset = first_page->page_no * PAGE_SIZE;
     fseek(f, offset, SEEK_SET);
-    
-    int i = 0;
-    for (itr = written_pages->begin(); i < flush_num; ++itr) {
+    Page* last_page = written_pages->back();
+    for (itr = written_pages->begin(); itr != written_pages->end(); ++itr) {
         Page* page = *itr;
         fwrite(page->data, 1, PAGE_SIZE, f);
-        buffer->free_pages->push_back(page);
-        i += 1;
+        if (page != last_page) {
+            buffer->free_pages->push_back(page);
+            map_itr = buffer->page_map->find(page->page_no);
+            buffer->page_map->erase(map_itr);  
+        }
     }
-    
-    i = 0;
-    while (i < flush_num) {
-        written_pages->pop_front();
-        i += 1;
-    }
-
+    written_pages->clear();
 }
 
 
@@ -112,11 +102,11 @@ Page* request_new_page(PageBuffer* buffer, FILE* f, int new_page_no) {
         int num_allocated = buffer->page_map->size();
         if (num_allocated < buffer->capacity) {
             page = new_page();
-            (*(buffer->page_map))[new_page_no] = page;
         } else {
             if (buffer->written_pages->size() > 0) {
                 //write to disk for more free pages
-                flush_written_pages(buffer, f, true);
+                flush_written_pages(buffer, f);
+
                 //allocate one from free_pages
                 if (buffer->free_pages->size() == 0)
                     throw "buffer is too small.";
@@ -128,6 +118,10 @@ Page* request_new_page(PageBuffer* buffer, FILE* f, int new_page_no) {
         }
     }
     page->page_no = new_page_no;
+    if (buffer->page_map->find(new_page_no) != buffer->page_map->end()) {
+        throw "buffer error";
+    }
+    (*(buffer->page_map))[new_page_no] = page;
     return page;
 }
 
