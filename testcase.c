@@ -6,7 +6,8 @@
 
 void test_put() {
     char path[100] = "/home/qmwang/code/course_project/passage_db";
-    DB* db = db_open(path);  
+    DBOpt* opt = NULL;
+    DB* db = db_open(path, opt);  
     int N = 10000;
     int i = 0;
     int j = 0;
@@ -40,7 +41,7 @@ void test_put() {
     db_close(db);
     db = NULL;
     // open
-    db = db_open(path);
+    db = db_open(path, opt);
     std::cout << "total items: " << db->total_items << std::endl;
    
     for (i=0; i < 100; i++) {

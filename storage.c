@@ -33,15 +33,22 @@ extern Page* new_meta_page();
 extern void free_page_buffer(PageBuffer* buffer);
 extern void free_page(Page* page);
 
-void init_opts() {
-    PAGE_SIZE = 1024 * 4;
+void init_opts(DBOpt* opt) {
+    if (opt != NULL) {
+        PAGE_SIZE = opt->page_size;
+        MAX_INDEX_BUFFER_SIZE = opt->max_index_buffer_size;
+        MAX_DATA_BUFFER_SIZE = opt->max_data_buffer_size; 
+    } else {
+        PAGE_SIZE = 1024 * 4;
+        MAX_INDEX_BUFFER_SIZE = 200;
+        MAX_DATA_BUFFER_SIZE = 1000;
+    }
     PAGE_META_OFFSET = PAGE_SIZE - sizeof(int)*2;
     META_PAGE_SIZE = 1024 * 4;
-    MAX_INDEX_BUFFER_SIZE = 3;
-    MAX_DATA_BUFFER_SIZE = 3;
 }
 
-void init_db(DB* db) {
+void init_db(DB* db, DBOpt* opt) {
+    init_opts(opt);
     db->path[0] = '\0';
     db->f_meta = NULL;
     db->f_index = NULL;
@@ -59,13 +66,12 @@ bool file_exist(char *filename)
     return (access(filename, F_OK ) != -1);
 }
 
-DB* db_open(char* path) {
+DB* db_open(char* path, DBOpt* opt) {
     if (strlen(path) >= MAX_PATH_SIZE)
         throw "db path is too long.";
 
-    init_opts();
     DB* db = (DB*)malloc(sizeof(DB));
-    init_db(db);
+    init_db(db, opt);
     strcpy(db->path, path);
 
     char meta_file_path[MAX_FULL_PATH_SIZE];

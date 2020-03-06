@@ -64,7 +64,13 @@ typedef struct DataItem {
     char* value;
 } DataItem;
 
-DB* db_open(char* path);
+typedef struct DBOpt {
+   int page_size;
+   int max_index_buffer_size;
+   int max_data_buffer_size;
+} DBOpt;
+
+DB* db_open(char* path, DBOpt* opt);
 
 vector<DataItem*>* db_get(DB*db, vector<string>* key_lst);
 
