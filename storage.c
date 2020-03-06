@@ -5,8 +5,8 @@
 #include <unistd.h>
 #include "storage.h"
 #define MAX_FULL_PATH_SIZE 300
-#define MAX_INDEX_BUFFER_SIZE 100
-#define MAX_DATA_BUFFER_SIZE  1000
+#define MAX_INDEX_BUFFER_SIZE 3
+#define MAX_DATA_BUFFER_SIZE  3
 
 using namespace std;
 
@@ -19,7 +19,7 @@ extern void set_page_offset(Page* page, int offset);
 extern bool fit_page(Page* page, int space_needed);
 extern void reset_page(Page* page);
 extern void flush_written_pages(PageBuffer* buffer, FILE* f, bool keep_last);
-extern Page* request_new_page(PageBuffer* buffer, FILE* f);
+extern Page* request_new_page(PageBuffer* buffer, FILE* f, int new_page_no);
 extern Page* read_index_page(DB* db, int page_no);
 extern Page* read_data_page(DB* db, int page_no);
 extern Page* read_meta_page(FILE* f); 
@@ -93,34 +93,33 @@ void read_meta(DB* db) {
     db->meta_page = read_meta_page(db->f_meta);
     char* meta = db->meta_page->data;
     int offset = 0;
+    memcpy(&(db->total_items), meta+offset, sizeof(int));
+    offset += sizeof(int);
     memcpy(&(db->total_index_pages), meta+offset, sizeof(int));
     offset += sizeof(int);
     memcpy(&(db->total_data_pages), meta+offset, sizeof(int));
-    
 }
 
 bool is_meta_changed(DB* db) {
     int offset = 0;
-    int index_pages = 0;
+    int total_items = 0;
     char* meta = db->meta_page->data;
-    memcpy(&index_pages, meta+offset, sizeof(int));
-    offset += sizeof(int);
-    if (index_pages != db->total_index_pages)
+    memcpy(&total_items, meta+offset, sizeof(int));
+    if (total_items != db->total_items)
         return true;
-    int data_pages = 0;
-    memcpy(&data_pages, meta+offset, sizeof(int));
-    if (data_pages != db->total_data_pages) {
-        return true;
-    }
-    return false;
+    else
+        return false;
 }
 
 void write_meta(DB* db) {
     int offset = 0;
     char* meta = db->meta_page->data;
+    memcpy(meta+offset, &(db->total_items), sizeof(int));
+    offset += sizeof(int);
     memcpy(meta+offset, &(db->total_index_pages), sizeof(int));
     offset += sizeof(int);
     memcpy(meta+offset, &(db->total_data_pages), sizeof(int));
+
     write_meta_page(db->f_meta, db->meta_page);
 }
 
@@ -178,11 +177,11 @@ IndexItem* create_IndexItem(char* key, int page_no, int offset, int data_size) {
     [item_1_size][item_1_data][item_2_size][item_2_data]... 
 */
 void db_put(DB* db, DataItem* db_items, int item_size) {
-    int size_len = sizeof(int); 
+    int size_len = sizeof(int);
+    int new_page_no = db->total_data_pages; 
     Page* page = NULL;
     if (db->total_data_pages == 0) {
-        page = request_new_page(db->data_buffer, db->f_data);
-        page->page_no = db->total_data_pages;
+        page = request_new_page(db->data_buffer, db->f_data, new_page_no);
     } else {
         int last_page_no = db->total_data_pages - 1;
         Page* last_page = read_data_page(db, last_page_no);
@@ -191,8 +190,7 @@ void db_put(DB* db, DataItem* db_items, int item_size) {
         if (fit_flag) {
             page = last_page;
         } else {
-            page = request_new_page(db->data_buffer, db->f_data);
-            page->page_no = db->total_data_pages;
+            page = request_new_page(db->data_buffer, db->f_data, new_page_no);
         }
     }
 
@@ -227,28 +225,27 @@ void db_put(DB* db, DataItem* db_items, int item_size) {
             memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &num_items, sizeof(int));
             //put this page in written_pages queue
             db->data_buffer->written_pages->push_back(page);
-            db->total_data_pages += 1;  
-            page = request_new_page(db->data_buffer, db->f_data);
-            page->page_no = db->total_data_pages;
+            db->total_data_pages += 1;
+            new_page_no = db->total_data_pages; 
+            page = request_new_page(db->data_buffer, db->f_data, new_page_no);
             num_items = 0;
             offset = 0;
             space = max_space;
         } 
     }
-
     if (num_items > 0) {
         set_page_offset(page, offset);
         memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &num_items, sizeof(int));
         db->data_buffer->written_pages->push_back(page);
         db->total_data_pages += 1;
     }
-
     bool keep_last_page = false;
     flush_written_pages(db->data_buffer, db->f_data, keep_last_page);
 
     //write index page
     write_index(db, index_item_lst); 
 
+    db->total_items += item_size;
     write_meta(db);
      
 }
@@ -256,10 +253,10 @@ void db_put(DB* db, DataItem* db_items, int item_size) {
 void write_index(DB* db, list<IndexItem*> index_item_lst){
     int index_item_size = MAX_KEY_SIZE + sizeof(int) * 3;
     int min_space = index_item_size;
+    int new_page_no = db->total_index_pages;
     Page* page = NULL;
     if (db->total_index_pages == 0) {
-        page = request_new_page(db->index_buffer, db->f_index);
-        page->page_no = db->total_index_pages;
+        page = request_new_page(db->index_buffer, db->f_index, new_page_no);
     } else {
         int last_page_no = db->total_index_pages - 1;
         Page* last_page = read_index_page(db, last_page_no);
@@ -267,8 +264,7 @@ void write_index(DB* db, list<IndexItem*> index_item_lst){
         if (fit_flag) {
             page = last_page;
         } else {
-            page = request_new_page(db->index_buffer, db->f_index);
-            page->page_no = db->total_index_pages;
+            page = request_new_page(db->index_buffer, db->f_index, new_page_no);
         }
     }
 
@@ -311,9 +307,9 @@ void write_index(DB* db, list<IndexItem*> index_item_lst){
             memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &num_items, sizeof(int));
 
             db->index_buffer->written_pages->push_back(page);
-            db->total_index_pages += 1;  
-            page = request_new_page(db->index_buffer, db->f_index);
-            page->page_no = db->total_index_pages;
+            db->total_index_pages += 1;
+            new_page_no = db->total_index_pages; 
+            page = request_new_page(db->index_buffer, db->f_index, new_page_no);
             
             num_items = 0;
             offset = 0;

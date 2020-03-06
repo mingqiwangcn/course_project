@@ -97,7 +97,7 @@ void flush_written_pages(PageBuffer* buffer, FILE* f, bool keep_last) {
 }
 
 
-Page* request_new_page(PageBuffer* buffer, FILE* f) {
+Page* request_new_page(PageBuffer* buffer, FILE* f, int new_page_no) {
     Page* page = NULL;
     if (buffer->free_pages->size() > 0) {
        page = buffer->free_pages->front();
@@ -106,6 +106,8 @@ Page* request_new_page(PageBuffer* buffer, FILE* f) {
         int num_allocated = buffer->page_map->size();
         if (num_allocated < buffer->capacity) {
             page = new_page();
+            page->page_no = new_page_no;
+            (*(buffer->page_map))[new_page_no] = page;
         } else {
             if (buffer->written_pages->size() > 0) {
                 //write to disk for more free pages
@@ -132,11 +134,10 @@ Page* read_page(PageBuffer* buffer, FILE* f, int total_pages, int page_no) {
         page = itr->second;
         return page;
     }
-    page = request_new_page(buffer, f);
+    page = request_new_page(buffer, f, page_no);
     int offset = page_no * PAGE_SIZE;
     fseek(f, offset, SEEK_SET);
     fread(page->data, 1, PAGE_SIZE, f);
-    page->page_no = page_no;
     (*(buffer->page_map))[page_no] = page;
     return page;
 }

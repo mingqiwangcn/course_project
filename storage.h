@@ -5,7 +5,7 @@
 #include <list>
 #define MAX_KEY_SIZE 116
 #define MAX_PATH_SIZE 200
-#define PAGE_SIZE 32768 //32M
+#define PAGE_SIZE 4096 // 32768 2M
 #define PAGE_META_OFFSET (PAGE_SIZE-sizeof(int)*2)
 #define META_PAGE_SIZE 4096 
 using namespace std;
@@ -28,7 +28,7 @@ typedef struct PageBuffer {
     int capacity;
     unordered_map<int, Page*>* page_map;
     list<Page*>* free_pages;
-    list<Page*>* written_pages;
+    list<Page*>* written_pages; //these pages are already indexed in page_map.
 } PageBuffer;
 
 typedef struct DB {
@@ -39,6 +39,7 @@ typedef struct DB {
     
     int total_index_pages;
     int total_data_pages;
+    int total_items;
     Page* meta_page;
 
     unordered_map<string, IndexItem>* index_map;
