@@ -163,8 +163,34 @@ IndexItem* create_IndexItem(char* key, int page_no, int offset, int data_size) {
     return item;
 }
 
+DataItem* create_DataItem(int data_size) {
+    DataItem* item = (DataItem*)malloc(sizeof(DataItem));
+    item->value = (char*)malloc(data_size);
+    item->size = data_size;
+    return item; 
+}
+
+DataItem* get_data_item(Page* page, int offset, int data_size) {
+    DataItem* item = create_DataItem(data_size);
+    memcpy(item->value, page->data+offset+sizeof(int), data_size);
+    return item;
+}
+
 DataItem** db_get(DB*db, char** keys, int key_size) {
-    return NULL;
+    DataItem** data_item_lst = (DataItem**)malloc(sizeof(DataItem*)*key_size);
+    unordered_map<string, IndexItem*>::iterator itr;
+    for (int i = 0; i < key_size; i++ ) {
+        string map_key(keys[i]);
+        itr = db->index_map->find(map_key);
+        if (itr != db->index_map->end()) {
+            IndexItem* index_item = itr->second;
+            Page* data_page = read_data_page(db, index_item->page_no);
+            data_item_lst[i] = get_data_item(data_page, index_item->offset, index_item->data_size);
+        } else {
+           throw "key not found."; 
+        }
+    }
+    return data_item_lst;
 }
 
 /*
