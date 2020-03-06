@@ -29,6 +29,7 @@ typedef struct PageBuffer {
     unordered_map<int, Page*>* page_map;
     list<Page*>* free_pages;
     list<Page*>* written_pages; //these pages are already indexed in page_map.
+    int last_write_page;
 } PageBuffer;
 
 typedef struct DB {
