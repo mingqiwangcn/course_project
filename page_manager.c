@@ -25,6 +25,10 @@ void set_page_offset(Page* page, int offset) {
     memcpy(page->data+PAGE_META_OFFSET, &offset, sizeof(int));
 }
 
+void set_page_item_count(Page* page, int item_count) {
+      memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &item_count, sizeof(int));
+}
+
 bool fit_page(Page* page, int space_needed) {
     int space = PAGE_META_OFFSET - get_page_offset(page);
     return space >= space_needed;
@@ -33,6 +37,7 @@ bool fit_page(Page* page, int space_needed) {
 void reset_page(Page* page) {
     page->page_no = -1;
     set_page_offset(page, 0);
+    set_page_item_count(page, 0);
 }
 
 Page* new_page() {
@@ -92,6 +97,7 @@ void flush_written_pages(PageBuffer* buffer, FILE* f, bool keep_last) {
     i = 0;
     while (i < flush_num) {
         written_pages->pop_front();
+        i += 1;
     }
 
 }
