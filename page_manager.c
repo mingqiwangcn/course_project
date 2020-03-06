@@ -9,6 +9,7 @@ PageBuffer* new_page_buffer(int capacity) {
     PageBuffer* buffer = (PageBuffer*)malloc(sizeof(PageBuffer));
     buffer->capacity = capacity;
     buffer->page_map = new unordered_map<int, Page*>();
+    buffer->enter_queue = new list<Page*>();
     buffer->free_pages = new list<Page*>();
     buffer->written_pages = new list<Page*>();
     buffer->last_write_page = -1;
@@ -100,8 +101,7 @@ void flush_written_pages(PageBuffer* buffer, FILE* f) {
     written_pages->clear();
 }
 
-
-Page* request_new_page(PageBuffer* buffer, FILE* f, int new_page_no) {
+Page* request_new_page_to_append(PageBuffer* buffer, FILE* f, int new_page_no) {
     Page* page = NULL;
     if (buffer->free_pages->size() > 0) {
        page = buffer->free_pages->front();
@@ -143,11 +143,23 @@ Page* read_page(PageBuffer* buffer, FILE* f, int total_pages, int page_no) {
         page = itr->second;
         return page;
     }
-    page = request_new_page(buffer, f, page_no);
+   
+    if (buffer->page_map->size() < buffer->capacity) {
+        page = new_page();
+        page->page_no = page_no;
+    } else {
+        //need to evict some page by enter_queue
+        page = buffer->enter_queue->front();
+        buffer->enter_queue->pop_front();
+        itr = buffer->page_map->find(page->page_no);
+        buffer->page_map->erase(itr);
+        page->page_no = page_no; 
+    } 
     int offset = page_no * PAGE_SIZE;
     fseek(f, offset, SEEK_SET);
     fread(page->data, 1, PAGE_SIZE, f);
     (*(buffer->page_map))[page_no] = page;
+    buffer->enter_queue->push_back(page);
     return page;
 }
 

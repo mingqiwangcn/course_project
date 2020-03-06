@@ -27,6 +27,7 @@ typedef struct Page {
 typedef struct PageBuffer {
     int capacity;
     unordered_map<int, Page*>* page_map;
+    list<Page*>* enter_queue;
     list<Page*>* free_pages;
     list<Page*>* written_pages; //these pages are already indexed in page_map.
     int last_write_page;
@@ -43,7 +44,7 @@ typedef struct DB {
     int total_items;
     Page* meta_page;
 
-    unordered_map<string, IndexItem>* index_map;
+    unordered_map<string, IndexItem*>* index_map;
 
     PageBuffer* index_buffer;
     PageBuffer* data_buffer;

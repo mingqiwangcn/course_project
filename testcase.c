@@ -27,6 +27,13 @@ void test_put() {
     db_put(db, p_items, N);
 
     db_close(db);
+
+    db = NULL;
+    // open
+    db = db_open(path);
+
+    std::cout << "total items: " << db->total_items << std::endl;
+
 }
 
 int main() {
@@ -41,7 +48,7 @@ int main() {
     }
     catch (const std::exception& ex) {
         std::cerr << "Error occurred: " << ex.what() << std::endl;
-    }
+    }void db_get(DB* db, char** keys, int key_size);
     return 0;
 }
 
