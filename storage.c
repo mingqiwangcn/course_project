@@ -6,14 +6,13 @@
 #include <unistd.h>
 #include "storage.h"
 #define MAX_FULL_PATH_SIZE 300
+using namespace std;
 
 int PAGE_SIZE; 
 int PAGE_META_OFFSET;
 int META_PAGE_SIZE;
 int MAX_INDEX_BUFFER_SIZE;
 int MAX_DATA_BUFFER_SIZE;
-
-using namespace std;
 
 void join_path(char* full_path, char* path, char* file_name);
 void read_meta(DB* db);
@@ -34,13 +33,12 @@ extern Page* new_meta_page();
 extern void free_page_buffer(PageBuffer* buffer);
 extern void free_page(Page* page);
 
-
 void init_opts() {
-    PAGE_SIZE = 1024 * 32;
+    PAGE_SIZE = 1024 * 4;
     PAGE_META_OFFSET = PAGE_SIZE - sizeof(int)*2;
     META_PAGE_SIZE = 1024 * 4;
-    MAX_INDEX_BUFFER_SIZE = 500;
-    MAX_DATA_BUFFER_SIZE = 1000;
+    MAX_INDEX_BUFFER_SIZE = 3;
+    MAX_DATA_BUFFER_SIZE = 3;
 }
 
 void init_db(DB* db) {
@@ -141,53 +139,70 @@ void write_meta(DB* db) {
 }
 
 
-void build_index(DB* db, Page* page) {
+void create_index_items(DB* db, Page* page) {
     int max_offset = get_page_offset(page);
     int offset = 0;
     while (offset < max_offset) {
+
         IndexItem* index_item = (IndexItem*)malloc(sizeof(IndexItem));
-        memcpy(index_item->key, page->data+offset, MAX_KEY_SIZE);
-        offset += MAX_KEY_SIZE;
+
+        memcpy(&(index_item->key_size), page->data+offset, sizeof(int));
+        offset += sizeof(int);
+
+        index_item->key = (char*)malloc(index_item->key_size);
+        memcpy(index_item->key, page->data+offset, index_item->key_size);
+        offset += index_item->key_size;
+
         memcpy(&(index_item->page_no), page->data+offset, sizeof(int));
-        offset += sizeof(int); 
+        offset += sizeof(int);
+        
         memcpy(&(index_item->offset), page->data+offset, sizeof(int));
         offset += sizeof(int);
+
         memcpy(&(index_item->data_size), page->data+offset, sizeof(int));
         offset += sizeof(int);
+
         string map_key(index_item->key);
         (*(db->index_map))[map_key] = index_item;
     }
 }
-
 
 void read_index(DB* db){
     db->index_map = new unordered_map<string, IndexItem*>();
     int page_no = 0;
     for (page_no = 0; page_no < db->total_index_pages; page_no++) {
         Page* page = read_index_page(db, page_no);
-        build_index(db, page); 
+        create_index_items(db, page); 
     }
 }
 
-IndexItem* create_IndexItem(char* key, int page_no, int offset, int data_size) {
+IndexItem* create_IndexItem(int key_size, char* key, int page_no, int offset, int data_size) {
     IndexItem* item = (IndexItem*)malloc(sizeof(IndexItem));
-    strcpy(item->key, key);
+    item->key_size = key_size;
+    item->key = (char*)malloc(item->key_size);
+    memcpy(item->key, key, item->key_size);
     item->page_no = page_no;
     item->offset = offset;
     item->data_size = data_size;
     return item;
 }
 
-DataItem* create_DataItem(int data_size) {
+DataItem* get_data_item(Page* page, int offset) {
     DataItem* item = (DataItem*)malloc(sizeof(DataItem));
-    item->value = (char*)malloc(data_size);
-    item->size = data_size;
-    return item; 
-}
 
-DataItem* get_data_item(Page* page, int offset, int data_size) {
-    DataItem* item = create_DataItem(data_size);
-    memcpy(item->value, page->data+offset+sizeof(int), data_size);
+    memcpy(&(item->key_size), page->data+offset, sizeof(int));
+    offset += sizeof(int);
+
+    item->key = (char*)malloc(item->key_size);
+    memcpy(item->key, page->data+offset, item->key_size);
+
+    offset += item->key_size;
+    memcpy(&(item->data_size), page->data+offset, sizeof(int));
+
+    offset += sizeof(int);
+    item->value = (char*)malloc(item->data_size);
+    memcpy(item->value, page->data+offset, item->data_size);
+
     return item;
 }
 
@@ -201,7 +216,7 @@ vector<DataItem*>* db_get(DB*db, vector<string>* key_lst) {
         if (map_itr != db->index_map->end()) {
             IndexItem* index_item = map_itr->second;
             Page* data_page = read_data_page(db, index_item->page_no);
-            DataItem* data_item = get_data_item(data_page, index_item->offset, index_item->data_size);
+            DataItem* data_item = get_data_item(data_page, index_item->offset);
             strcpy(data_item->key, map_key.c_str());
             data_item_lst->push_back(data_item);
         } else {
@@ -228,7 +243,7 @@ void db_put(DB* db, vector<DataItem*>* data_items) {
     } else {
         int last_page_no = db->total_data_pages - 1;
         Page* last_page = read_data_page(db, last_page_no);
-        int min_space = size_len + (*data_items)[0]->size;
+        int min_space = size_len + (*data_items)[0]->data_size;
         bool fit_flag = fit_page(last_page, min_space);
         if (fit_flag) {
             page = last_page;
@@ -244,14 +259,21 @@ void db_put(DB* db, vector<DataItem*>* data_items) {
     list<IndexItem*>* index_item_lst = new list<IndexItem*>(); 
     while (i < item_size) {
         DataItem* cur_item = (*data_items)[i];
-        int request_size = size_len + cur_item->size;
+        int key_size = cur_item->key_size;
+        int request_size = size_len + key_size + size_len + cur_item->data_size;
         if (request_size <= space) {
-            IndexItem* idx_item = create_IndexItem(cur_item->key, page->page_no, offset, cur_item->size);
+            IndexItem* idx_item = create_IndexItem(key_size, cur_item->key, page->page_no, 
+                                                   offset, cur_item->data_size);
             index_item_lst->push_back(idx_item);
-            memcpy(page->data+offset, &(cur_item->size), size_len);
+            
+            memcpy(page->data+offset, &key_size, size_len);
+            offset += size_len;
+            memcpy(page->data+offset, cur_item->key, key_size);
+            offset += key_size;
+            memcpy(page->data+offset, &(cur_item->data_size), size_len);
             offset += size_len; 
-            memcpy(page->data+offset, cur_item->value, cur_item->size); 
-            offset += cur_item->size;
+            memcpy(page->data+offset, cur_item->value, cur_item->data_size); 
+            offset += cur_item->data_size;
             space -= request_size;
             num_items += 1;
             i += 1;
@@ -288,7 +310,7 @@ void db_put(DB* db, vector<DataItem*>* data_items) {
 }
 
 void write_index(DB* db, list<IndexItem*>* index_item_lst){
-    int index_item_size = MAX_KEY_SIZE + sizeof(int) * 3;
+    int index_item_size = 0;
     int min_space = index_item_size;
     int new_page_no = db->total_index_pages;
     Page* page = NULL;
@@ -322,9 +344,13 @@ void write_index(DB* db, list<IndexItem*>* index_item_lst){
 
     i = 0;
     while (i < item_count) {
+        int key_size = strlen(p_idx_items[i]->key) + 1;
+        index_item_size = sizeof(int) + key_size + sizeof(int) * 3;
         if (index_item_size <= space) {
-            memcpy(page->data+offset, p_idx_items[i]->key, MAX_KEY_SIZE);
-            offset += MAX_KEY_SIZE;
+            memcpy(page->data+offset, &key_size, sizeof(int));
+            offset += sizeof(int);
+            memcpy(page->data+offset, p_idx_items[i]->key, key_size);
+            offset += key_size;
             memcpy(page->data+offset, &(p_idx_items[i]->page_no), sizeof(int));
             offset += sizeof(int);
             memcpy(page->data+offset, &(p_idx_items[i]->offset), sizeof(int));
@@ -370,22 +396,14 @@ void db_close(DB* db) {
     if (is_meta_changed(db)) {
         write_meta(db);
     }
-
     free_page_buffer(db->index_buffer);
     free_page_buffer(db->data_buffer);
-
     free_page(db->meta_page);
-    
     fclose(db->f_meta);
     fclose(db->f_index);
     fclose(db->f_data);
-    
     free(db);
-
     return;
 }
-
-
-
 
 

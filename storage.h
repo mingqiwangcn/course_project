@@ -18,7 +18,8 @@ extern int MAX_DATA_BUFFER_SIZE; //buffer capacity for data pages
 enum PageType {index_page, data_page};
 
 typedef struct IndexItem {
-    char key[MAX_KEY_SIZE];
+    char* key;
+    int key_size;
     int page_no;
     int offset;
     int data_size;
@@ -53,14 +54,14 @@ typedef struct DB {
 
     PageBuffer* index_buffer;
     PageBuffer* data_buffer;
-    
      
 } DB;
 
 typedef struct DataItem {
-    char key[MAX_KEY_SIZE];
+    int key_size;
+    char* key;
+    int data_size;
     char* value;
-    int size;
 } DataItem;
 
 DB* db_open(char* path);
