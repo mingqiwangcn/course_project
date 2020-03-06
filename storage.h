@@ -6,10 +6,14 @@
 #include <list>
 #define MAX_KEY_SIZE 116
 #define MAX_PATH_SIZE 200
-#define PAGE_SIZE 4096 // 32768 2M
-#define PAGE_META_OFFSET (PAGE_SIZE-sizeof(int)*2)
-#define META_PAGE_SIZE 4096 
+
 using namespace std;
+
+extern int PAGE_SIZE; // page size for index and data page
+extern int PAGE_META_OFFSET; // (PAGE_SIZE-sizeof(int)*2)
+extern int META_PAGE_SIZE; // page size for meta page, smaller than index and dats page.
+extern int MAX_INDEX_BUFFER_SIZE; //buffer capacity for index pages 
+extern int MAX_DATA_BUFFER_SIZE; //buffer capacity for data pages
 
 enum PageType {index_page, data_page};
 

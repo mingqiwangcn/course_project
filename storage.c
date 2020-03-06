@@ -6,8 +6,12 @@
 #include <unistd.h>
 #include "storage.h"
 #define MAX_FULL_PATH_SIZE 300
-#define MAX_INDEX_BUFFER_SIZE 3
-#define MAX_DATA_BUFFER_SIZE  3
+
+int PAGE_SIZE; 
+int PAGE_META_OFFSET;
+int META_PAGE_SIZE;
+int MAX_INDEX_BUFFER_SIZE;
+int MAX_DATA_BUFFER_SIZE;
 
 using namespace std;
 
@@ -29,6 +33,15 @@ extern PageBuffer* new_page_buffer(int capacity);
 extern Page* new_meta_page();
 extern void free_page_buffer(PageBuffer* buffer);
 extern void free_page(Page* page);
+
+
+void init_opts() {
+    PAGE_SIZE = 1024 * 32;
+    PAGE_META_OFFSET = PAGE_SIZE - sizeof(int)*2;
+    META_PAGE_SIZE = 1024 * 4;
+    MAX_INDEX_BUFFER_SIZE = 500;
+    MAX_DATA_BUFFER_SIZE = 1000;
+}
 
 void init_db(DB* db) {
     db->path[0] = '\0';
@@ -52,6 +65,7 @@ DB* db_open(char* path) {
     if (strlen(path) >= MAX_PATH_SIZE)
         throw "db path is too long.";
 
+    init_opts();
     DB* db = (DB*)malloc(sizeof(DB));
     init_db(db);
     strcpy(db->path, path);
