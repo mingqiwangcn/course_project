@@ -163,6 +163,10 @@ IndexItem* create_IndexItem(char* key, int page_no, int offset, int data_size) {
     return item;
 }
 
+DataItem** db_get(DB*db, char** keys, int key_size) {
+    return NULL;
+}
+
 /*
 1) reserve the last 8 bytes in a data page to store meta info
     [space_offset]: the start offset that contains no data items

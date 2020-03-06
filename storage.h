@@ -60,7 +60,7 @@ typedef struct DataItem {
 
 DB* db_open(char* path);
 
-void db_get(DB* db, char** keys, int key_size);
+DataItem** db_get(DB* db, char** keys, int key_size);
 
 void db_put(DB* db, DataItem* db_items, int item_size);
 
