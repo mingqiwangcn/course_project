@@ -112,13 +112,14 @@ Page* request_new_page(PageBuffer* buffer, FILE* f, int new_page_no) {
         int num_allocated = buffer->page_map->size();
         if (num_allocated < buffer->capacity) {
             page = new_page();
-            page->page_no = new_page_no;
             (*(buffer->page_map))[new_page_no] = page;
         } else {
             if (buffer->written_pages->size() > 0) {
                 //write to disk for more free pages
                 flush_written_pages(buffer, f, true);
                 //allocate one from free_pages
+                if (buffer->free_pages->size() == 0)
+                    throw "buffer is too small.";
                 page = buffer->free_pages->front();
                 buffer->free_pages->pop_front();
             } else {
@@ -126,6 +127,7 @@ Page* request_new_page(PageBuffer* buffer, FILE* f, int new_page_no) {
             }
         }
     }
+    page->page_no = new_page_no;
     return page;
 }
 
@@ -163,6 +165,8 @@ Page* read_data_page(DB* db, int page_no) {
 Page* new_meta_page() {
     Page* page = (Page*)malloc(sizeof(Page*));
     page->data = (char*)malloc(META_PAGE_SIZE);
+    size_t N = sizeof(int) * 3;
+    memset(page->data, 0, N);
     page->page_no = 0;
     return page;
 }

@@ -25,6 +25,7 @@ extern Page* read_data_page(DB* db, int page_no);
 extern Page* read_meta_page(FILE* f); 
 extern void write_meta_page(FILE* f, Page* page); 
 extern PageBuffer* new_page_buffer(int capacity);
+extern Page* new_meta_page();
 extern void free_page_buffer(PageBuffer* buffer);
 extern void free_page(Page* page);
 
@@ -63,6 +64,7 @@ DB* db_open(char* path) {
         read_meta(db);
     } else {
         db->f_meta = fopen(meta_file_path, "a+");
+        db->meta_page = new_meta_page();
     }
 
     char index_file_path[MAX_FULL_PATH_SIZE];
