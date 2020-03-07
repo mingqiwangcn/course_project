@@ -65,7 +65,6 @@ typedef struct DataItem {
 } DataItem;
 
 typedef struct DBOpt {
-   int page_size;
    int max_index_buffer_size;
    int max_data_buffer_size;
 } DBOpt;

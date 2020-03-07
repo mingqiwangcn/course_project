@@ -1,10 +1,16 @@
+#define PYTHON_INTERFACE
+
+#ifdef PYTHON_INTERFACE
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#endif
+
 #include <string.h>
 #include "storage.h"
 
 using namespace std;
 
+extern void init_DBOpt(DBOpt& opt);
 extern DB* db_open(char* path, DBOpt* opt);
 extern vector<DataItem*>* db_get(DB*db, vector<string>* key_lst);
 extern void db_put(DB* db, vector<DataItem*>* data_items);
@@ -23,13 +29,10 @@ string get_opt(unordered_map<string, string>& options, string opt_name) {
 }
 
 void interop_db_open(char* path, unordered_map<string, string>& options) {
-    DBOpt opt = {0, 0, 0};
+    DBOpt opt;
+    init_DBOpt(opt); 
     if (options.size() > 0) {
         unordered_map<string, string>::iterator itr;
-        string opt_page_size = get_opt(options, "page_size");
-        if (opt_page_size != "") {
-            opt.page_size = atoi(opt_page_size.c_str());
-        }
         string opt_max_index_buffer_size = get_opt(options, "max_index_buffer_size");
         if (opt_max_index_buffer_size != "") {
             opt.max_data_buffer_size = atoi(opt_max_index_buffer_size.c_str());
@@ -97,6 +100,7 @@ void interop_db_close() {
     }
 }
 
+#ifdef PYTHON_INTERFACE
 PYBIND11_MODULE(db_storage, m) {
     m.doc() = "db_storage"; // optional module docstring
     m.def("open", &interop_db_open, "open database");
@@ -104,5 +108,8 @@ PYBIND11_MODULE(db_storage, m) {
     m.def("put", &interop_db_put, "put data");
     m.def("close", &interop_db_close, "clode database");
 }
+#endif
+
+
 
 

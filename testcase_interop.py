@@ -1,9 +1,10 @@
+import argparse;
 import db_storage as db;
 import random
 
-def test_put():
-    opts = {"page_size":"4096"}
-    db.open("/home/qmwang/code/course_project/example_db2", opts)
+def test_put(args):
+    opts = None
+    db.open(args.db_path, opts)
 
     N = 10000;
     data = {}
@@ -20,7 +21,7 @@ def test_put():
     db.close()
 
     # open again to read
-    db.open("/home/qmwang/code/course_project/example_db2", opts)
+    db.open(args.db_path, opts)
     qry_keys = [];
     for i in range(100):
         pos = random.randint(0, N-1); 
@@ -39,8 +40,17 @@ def test_put():
     db.close()    
     print("OK")
 
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--db_path', type=str)
+    args = parser.parse_args()
+    return args
+
+
 def main():
-    test_put()
+    args = get_args();
+    test_put(args)
 
 if __name__ == '__main__':
     main();
+

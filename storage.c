@@ -3,6 +3,7 @@
 #include <vector>
 #include <list>
 #include <unistd.h>
+#include <fstream>
 #include "storage.h"
 #define MAX_FULL_PATH_SIZE 300
 using namespace std;
@@ -32,24 +33,43 @@ extern Page* new_meta_page();
 extern void free_page_buffer(PageBuffer* buffer);
 extern void free_page(Page* page);
 
-void init_opts(DBOpt* opt) {
+void read_cfg() {
     PAGE_SIZE = 1024 * 4;
+    ifstream cfg_file("storage.cfg");
+    string line;
+    while (getline(cfg_file, line)) {
+        char text[100];
+        strcpy(text, line.c_str());
+        char* rest = text;
+        char* opt_name = strtok_r(rest, " ", &rest);
+        char* opt_value = strtok_r(rest, " ", &rest);
+        if (string(opt_name) == "page_size") {
+            PAGE_SIZE = atoi(opt_value);
+        }
+    }
+    PAGE_META_OFFSET = PAGE_SIZE - sizeof(int)*2;
+    META_PAGE_SIZE = 1024 * 4;
+}
+
+void read_opts(DBOpt* opt) {
     MAX_INDEX_BUFFER_SIZE = 200;
     MAX_DATA_BUFFER_SIZE = 1000;
     if (opt != NULL) {
-        if (opt->page_size > 0)
-            PAGE_SIZE = opt->page_size;
         if (opt->max_index_buffer_size < 0)
             MAX_INDEX_BUFFER_SIZE = opt->max_index_buffer_size;
         if (opt->max_data_buffer_size > 0)
             MAX_DATA_BUFFER_SIZE = opt->max_data_buffer_size; 
     } 
-    PAGE_META_OFFSET = PAGE_SIZE - sizeof(int)*2;
-    META_PAGE_SIZE = 1024 * 4;
+}
+
+void init_DBOpt(DBOpt& opt) {
+    opt.max_index_buffer_size = 0;
+    opt.max_data_buffer_size = 0;
 }
 
 void init_db(DB* db, DBOpt* opt) {
-    init_opts(opt);
+    read_cfg();
+    read_opts(opt);
     db->path[0] = '\0';
     db->f_meta = NULL;
     db->f_index = NULL;
