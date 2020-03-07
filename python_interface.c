@@ -3,13 +3,12 @@
 #include <string.h>
 #include "storage.h"
 
-
 using namespace std;
+
 extern DB* db_open(char* path, DBOpt* opt);
 extern vector<DataItem*>* db_get(DB*db, vector<string>* key_lst);
 extern void db_put(DB* db, vector<DataItem*>* data_items);
 extern void db_close(DB* db);
-
 DB* g_db = NULL;
 
 
@@ -54,11 +53,15 @@ vector<vector<double>> interop_db_get(vector<string>& key_lst) {
         int double_item_size = item->data_size / sizeof(double);
         vector<double> float_vec(double_values, double_values + double_item_size);
         data_lst.push_back(float_vec);
+        
+        free(item->key);
+        free(item->value);
+        free(item);
     }
+    delete data_items;
     return data_lst;
 }
 
-//db_put(DB* db, vector<DataItem*>* data_items);
 void interop_db_put(unordered_map<string, vector<double>>& data) {
     vector<DataItem*> data_items;
     std::unordered_map<string, vector<double>>::iterator itr;
@@ -76,7 +79,6 @@ void interop_db_put(unordered_map<string, vector<double>>& data) {
         memcpy(item->value, byte_values, item->data_size); 
     }
     db_put(g_db, &data_items);
-    
     int i = 0;
     int item_count = data_items.size();
     while (i < item_count) {
@@ -84,12 +86,15 @@ void interop_db_put(unordered_map<string, vector<double>>& data) {
         free(item->key);
         free(item->value);
         free(item);
+        i += 1;
     }
 }
 
 void interop_db_close() {
-    if (g_db != NULL)
+    if (g_db != NULL) {
         db_close(g_db);
+        g_db = NULL;
+    }
 }
 
 PYBIND11_MODULE(db_storage, m) {
@@ -99,3 +104,5 @@ PYBIND11_MODULE(db_storage, m) {
     m.def("put", &interop_db_put, "put data");
     m.def("close", &interop_db_close, "clode database");
 }
+
+

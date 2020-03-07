@@ -3,9 +3,68 @@
 #include <vector>
 #include "storage.h"
 #include <unordered_map>
+#include <random>
+
+extern void interop_db_open(char* path, unordered_map<string, string>& options);
+extern vector<vector<double>> interop_db_get(vector<string>& key_lst);
+extern void interop_db_put(unordered_map<string, vector<double>>& data);
+extern void interop_db_close();
+
+void test_python_interface() {
+    char path[100] = "/home/qmwang/code/course_project/example_db1";
+    unordered_map<string, string> opt_map;
+    opt_map["page_size"] = "4096";
+    interop_db_open(path, opt_map);
+    int N = 10000;
+    int i = 0;
+    int j = 0;
+    srand(1);
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis(1.0, 10.0);
+    unordered_map<string, vector<double>> data;
+    vector<string> key_lst;
+    for (i = 0; i < N; i++) {
+        char key[20];
+        sprintf(key, "%d", i);
+        string map_key(key);
+        key_lst.push_back(map_key);
+        int M =  rand() % 3  + 1;
+        vector<double> value;
+        for (j = 0; j < M; j++) {
+            double item = dis(gen);
+            value.push_back(item);
+        }
+        data[map_key] = value;
+    }
+    interop_db_put(data);
+    interop_db_close();
+    
+    interop_db_open(path, opt_map);
+
+    for (i=0; i < 100; i++) {
+        vector<string> query_key_lst;
+        for (j = 0; j < 100; j++) {
+            int pos = rand() % N;
+            query_key_lst.push_back(key_lst[pos]);
+        }
+        vector<vector<double>> query_result = interop_db_get(query_key_lst);
+        for (j =0; j < 100; j++) {
+            string qry_key = query_key_lst[j];
+            vector<double> item_1 = data[qry_key];
+            vector<double> item_2 = query_result[j];
+            if (item_1 != item_2) {
+                throw "data is not euqal";
+            }
+        }
+    }
+    std::cout << "OK" << std::endl;
+    interop_db_close();
+}
 
 void test_put() {
-    char path[100] = "/home/qmwang/code/course_project/passage_db";
+    char path[100] = "/home/qmwang/code/course_project/example_db2";
     DBOpt* opt = NULL;
     DB* db = db_open(path, opt);  
     int N = 10000;
@@ -81,7 +140,8 @@ void test_put() {
 
 int main() {
     try {
-        test_put();
+        //test_put();
+        test_python_interface();
     }
     catch (char const* msg) {
         std::cout << "Error: " << msg << std::endl;
