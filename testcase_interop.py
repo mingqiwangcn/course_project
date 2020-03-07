@@ -3,7 +3,7 @@ import db_storage as db;
 import random
 
 def test_put(args):
-    opts = None
+    opt = {}
     db.open(args.db_path, opts)
 
     N = 10000;
