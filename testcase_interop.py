@@ -3,7 +3,7 @@ import db_storage as db;
 import random
 
 def test_put(args):
-    opt = {}
+    opts = {}
     db.open(args.db_path, opts)
 
     N = 10000;
@@ -17,11 +17,18 @@ def test_put(args):
         data[key] = value;
 
     db.put(data);
+ 
+    stat_data = db.stats();
+    print(stat_data)
     
     db.close()
 
     # open again to read
     db.open(args.db_path, opts)
+
+    stat_data = db.stats();
+    print(stat_data)
+
     qry_keys = [];
     for i in range(100):
         pos = random.randint(0, N-1); 

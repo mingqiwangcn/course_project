@@ -93,6 +93,14 @@ void interop_db_put(unordered_map<string, vector<double>>& data) {
     }
 }
 
+unordered_map<string, int> interop_db_stats() {
+    unordered_map<string, int> map_stats;
+    map_stats["total_items"] = g_db->total_items;
+    map_stats["total_index_pages"] = g_db->total_index_pages;
+    map_stats["total_data_pages"] = g_db->total_data_pages;
+    return map_stats;
+}
+
 void interop_db_close() {
     if (g_db != NULL) {
         db_close(g_db);
@@ -106,6 +114,7 @@ PYBIND11_MODULE(db_storage, m) {
     m.def("open", &interop_db_open, "open database");
     m.def("get", &interop_db_get, "get data");
     m.def("put", &interop_db_put, "put data");
+    m.def("stats", &interop_db_stats, "stat data");
     m.def("close", &interop_db_close, "clode database");
 }
 #endif

@@ -13,7 +13,6 @@ extern void interop_db_close();
 void test_python_interface() {
     char path[100] = "/home/qmwang/code/course_project/example_db1";
     unordered_map<string, string> opt_map;
-    opt_map["page_size"] = "4096";
     interop_db_open(path, opt_map);
     int N = 10000;
     int i = 0;
