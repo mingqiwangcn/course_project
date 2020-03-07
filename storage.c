@@ -18,6 +18,7 @@ void join_path(char* full_path, char* path, char* file_name);
 void read_meta(DB* db);
 void read_index(DB* db);
 void write_index(DB* db, list<IndexItem*>* index_item_lst);
+bool file_exist(char *filename);
 extern int get_page_offset(Page* page);
 extern void set_page_offset(Page* page, int offset);
 extern bool fit_page(Page* page, int space_needed);
@@ -33,20 +34,27 @@ extern Page* new_meta_page();
 extern void free_page_buffer(PageBuffer* buffer);
 extern void free_page(Page* page);
 
-void read_cfg() {
+void read_cfg(char*db_path) {
     PAGE_SIZE = 1024 * 4;
-    ifstream cfg_file("storage.cfg");
-    string line;
-    while (getline(cfg_file, line)) {
-        char text[100];
-        strcpy(text, line.c_str());
-        char* rest = text;
-        char* opt_name = strtok_r(rest, " ", &rest);
-        char* opt_value = strtok_r(rest, " ", &rest);
-        if (string(opt_name) == "page_size") {
-            PAGE_SIZE = atoi(opt_value);
+    char full_path[MAX_PATH_SIZE];
+    char file_name[100] = "storage.cfg";
+    join_path(full_path, db_path, file_name);
+
+    if (file_exist(full_path)) {
+        ifstream cfg_file(full_path);
+        string line;
+        while (getline(cfg_file, line)) {
+            char text[100];
+            strcpy(text, line.c_str());
+            char* rest = text;
+            char* opt_name = strtok_r(rest, " ", &rest);
+            char* opt_value = strtok_r(rest, " ", &rest);
+            if (string(opt_name) == "page_size") {
+                PAGE_SIZE = atoi(opt_value);
+            }
         }
     }
+
     PAGE_META_OFFSET = PAGE_SIZE - sizeof(int)*2;
     META_PAGE_SIZE = 1024 * 4;
 }
@@ -68,7 +76,6 @@ void init_DBOpt(DBOpt& opt) {
 }
 
 void init_db(DB* db, DBOpt* opt) {
-    read_cfg();
     read_opts(opt);
     db->path[0] = '\0';
     db->f_meta = NULL;
@@ -91,7 +98,8 @@ bool file_exist(char *filename)
 DB* db_open(char* path, DBOpt* opt) {
     if (strlen(path) >= MAX_PATH_SIZE)
         throw "db path is too long.";
-
+    
+    read_cfg(path);
     DB* db = (DB*)malloc(sizeof(DB));
     init_db(db, opt);
     strcpy(db->path, path);
