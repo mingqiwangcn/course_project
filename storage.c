@@ -141,7 +141,10 @@ void write_meta(DB* db) {
     memcpy(meta+offset, &(db->total_index_pages), sizeof(int));
     offset += sizeof(int);
     memcpy(meta+offset, &(db->total_data_pages), sizeof(int));
+    offset += sizeof(int);
 
+    memset(meta+offset, 0, META_PAGE_SIZE-offset);
+        
     write_meta_page(db->f_meta, db->meta_page);
 }
 
@@ -288,6 +291,8 @@ void db_put(DB* db, vector<DataItem*>* data_items) {
             //fulli
             if (num_items <= 0)
                 throw "error";
+            
+            memset(page->data+offset, 0, PAGE_META_OFFSET - offset);
              
             set_page_offset(page, offset);
             //set num of items in this page
@@ -303,6 +308,7 @@ void db_put(DB* db, vector<DataItem*>* data_items) {
         } 
     }
     if (num_items > 0) {
+        memset(page->data+offset, 0, PAGE_META_OFFSET - offset);
         set_page_offset(page, offset);
         memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &num_items, sizeof(int));
         db->data_buffer->written_pages->push_back(page);
@@ -373,6 +379,8 @@ void write_index(DB* db, list<IndexItem*>* index_item_lst){
             if (num_items <= 0)
                 throw "error";
             
+            memset(page->data+offset, 0, PAGE_META_OFFSET - offset);
+             
             set_page_offset(page, offset);
             memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &num_items, sizeof(int));
 
@@ -394,6 +402,7 @@ void write_index(DB* db, list<IndexItem*>* index_item_lst){
     }
     free(p_idx_items);
     if (num_items > 0) {
+        memset(page->data+offset, 0, PAGE_META_OFFSET - offset);
         set_page_offset(page, offset);
         memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &num_items, sizeof(int));
         db->index_buffer->written_pages->push_back(page);
