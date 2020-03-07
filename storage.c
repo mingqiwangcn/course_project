@@ -2,7 +2,6 @@
 #include <string.h>
 #include <vector>
 #include <list>
-#include <map>
 #include <unistd.h>
 #include "storage.h"
 #define MAX_FULL_PATH_SIZE 300
@@ -34,15 +33,17 @@ extern void free_page_buffer(PageBuffer* buffer);
 extern void free_page(Page* page);
 
 void init_opts(DBOpt* opt) {
+    PAGE_SIZE = 1024 * 4;
+    MAX_INDEX_BUFFER_SIZE = 200;
+    MAX_DATA_BUFFER_SIZE = 1000;
     if (opt != NULL) {
-        PAGE_SIZE = opt->page_size;
-        MAX_INDEX_BUFFER_SIZE = opt->max_index_buffer_size;
-        MAX_DATA_BUFFER_SIZE = opt->max_data_buffer_size; 
-    } else {
-        PAGE_SIZE = 1024 * 4;
-        MAX_INDEX_BUFFER_SIZE = 200;
-        MAX_DATA_BUFFER_SIZE = 1000;
-    }
+        if (opt->page_size > 0)
+            PAGE_SIZE = opt->page_size;
+        if (opt->max_index_buffer_size < 0)
+            MAX_INDEX_BUFFER_SIZE = opt->max_index_buffer_size;
+        if (opt->max_data_buffer_size > 0)
+            MAX_DATA_BUFFER_SIZE = opt->max_data_buffer_size; 
+    } 
     PAGE_META_OFFSET = PAGE_SIZE - sizeof(int)*2;
     META_PAGE_SIZE = 1024 * 4;
 }
