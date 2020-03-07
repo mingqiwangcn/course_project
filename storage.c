@@ -53,6 +53,7 @@ void init_db(DB* db, DBOpt* opt) {
     db->f_meta = NULL;
     db->f_index = NULL;
     db->f_data = NULL;
+    db->total_items = 0;
     db->total_index_pages = 0;
     db->total_data_pages = 0;
     db->meta_page = NULL;
@@ -385,23 +386,38 @@ void write_index(DB* db, list<IndexItem*>* index_item_lst){
             space = max_space;
         }
     }
-
+    i = 0;
+    while (i < item_count) {
+        free(p_idx_items[i]->key);
+        free(p_idx_items[i]);
+        i += 1;
+    }
     free(p_idx_items);
-
     if (num_items > 0) {
         set_page_offset(page, offset);
         memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &num_items, sizeof(int));
         db->index_buffer->written_pages->push_back(page);
         db->total_index_pages += 1;
     }
-
     flush_written_pages(db->index_buffer, db->f_index);
+}
+
+void free_index_map(DB* db) {
+    unordered_map<string, IndexItem*>::iterator itr;
+    for (itr = db->index_map->begin(); itr != db->index_map->end(); ++itr) {
+        IndexItem* item = itr->second;
+        free(item->key);
+        free(item);
+    }
+    delete db->index_map;
 }
 
 void db_close(DB* db) {
     if (is_meta_changed(db)) {
         write_meta(db);
     }
+    if (db->index_map != NULL)
+        free_index_map(db);
     free_page_buffer(db->index_buffer);
     free_page_buffer(db->data_buffer);
     free_page(db->meta_page);

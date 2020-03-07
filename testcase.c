@@ -25,7 +25,7 @@ void test_put() {
         strcpy(p_items[i].key, key);
         string item_key(key); 
         key_lst.push_back(item_key);
-        int M =  rand() % 2000;
+        int M =  rand() % 2000 + 20;
         p_items[i].key_size = strlen(key) + 1;
         p_items[i].value = (char*)malloc(M);
         for (j = 0; j < M; j++) {
@@ -64,9 +64,19 @@ void test_put() {
             if (memcmp(item_1->value, item_2->value, item_1->data_size) != 0) {
                 throw "value not equal";
             }
+            free(item_2->key);
+            free(item_2->value);
+            free(item_2);
         }
+        delete query_result;
     }
     std::cout << "OK" << std::endl;
+    for (i =0; i < N; i++) {
+        free(p_items[i].key);
+        free(p_items[i].value);
+    }
+    free(p_items);
+    db_close(db);
 }
 
 int main() {

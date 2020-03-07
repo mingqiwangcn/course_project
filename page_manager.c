@@ -43,7 +43,7 @@ void reset_page(Page* page) {
 }
 
 Page* new_page() {
-    Page* page = (Page*)malloc(sizeof(Page*));
+    Page* page = (Page*)malloc(sizeof(Page));
     page->data = (char*)malloc(PAGE_SIZE);
     reset_page(page); 
     return page;
@@ -69,7 +69,9 @@ void free_page_buffer(PageBuffer* buffer) {
         Page* page = itr->second;
         free_page(page);
     }
+    delete buffer->page_map;
     free_page_list(buffer->free_pages);
+    delete buffer->enter_queue;
     delete buffer->written_pages;
     free(buffer);
 }
@@ -176,7 +178,7 @@ Page* read_data_page(DB* db, int page_no) {
 
 
 Page* new_meta_page() {
-    Page* page = (Page*)malloc(sizeof(Page*));
+    Page* page = (Page*)malloc(sizeof(Page));
     page->data = (char*)malloc(META_PAGE_SIZE);
     size_t N = sizeof(int) * 3;
     memset(page->data, 0, N);
