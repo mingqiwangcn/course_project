@@ -73,7 +73,7 @@ void random_get(vector<string>& key_lst, unordered_map<string, vector<double>>& 
 }
 
 void test_python_interface() {
-    char path[100] = "/home/qmwang/code/course_project/example_db1";
+    char path[100] = "/home/cc/code/course_project/example_db1";
     unordered_map<string, string> opt_map;
     interop_db_open(path, opt_map);
     srand(1);
@@ -94,6 +94,8 @@ void test_python_interface() {
     interop_db_close();
     
     interop_db_open(path, opt_map);
+
+    sequential_get(key_lst, data);
     
     random_get(key_lst, data); 
 

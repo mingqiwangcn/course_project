@@ -3,31 +3,31 @@ import os;
 import db_storage as db;
 from tqdm import tqdm
 import pickle
-from multiprocessing import Pool as ProcessPool
 import queue
 import threading
 
+batch_size = 0
+
 def get_input_files(input_path):
     file_path_lst = []
-    part_num = 10
     N = 7845
-    for i in range(1, part_num+1):
-        part_name = ('part_%d' % i)
-        for j in range(N):
-            file_name = 'encoded.part.%d' % j
-            file_path = os.path.join(input_path, part_name, file_name)
-            file_path_lst.append(file_path)
+    for i in range(N):
+        file_name = 'encoded.part.%d' % i
+        file_path = os.path.join(input_path, file_name)
+        file_path_lst.append(file_path)
     return file_path_lst;
 
-data_queue = queue.Queue(5)
+data_queue = queue.Queue(2)
 
 def db_put_data():
     N = 0
+    num_batch_items = batch_size * 100
     while True:
         batch_data = data_queue.get()
         if batch_data is None:
             break
-        N += (len(batch_data) / 100)
+
+        N += (len(batch_data) / num_batch_items)
         db.put(batch_data)
         print('N=%d' % N);
    
@@ -50,6 +50,8 @@ def parse_data(file_path):
     return data_item_lst
 
 def import_data(args):
+    global batch_size
+    batch_size = args.batch_size
     input_path = args.input_path;
     db_path = args.db_path
 
@@ -60,38 +62,25 @@ def import_data(args):
     put_worker.start()
 
     file_path_lst = get_input_files(input_path);
-    
-    batch_size = args.batch_size
-
     N = len(file_path_lst);
     
-    work_pool = ProcessPool(args.num_workers)
-
-    data_item_lst = []
     for idx in tqdm(range(0, N, batch_size)):
+        data_item_lst = []
         batch_path_lst = file_path_lst[idx:(idx+batch_size)]
-        M = len(batch_path_lst) 
-        for encode_data_lst in work_pool.map(parse_data, batch_path_lst):
-            data_item_lst.extend(encode_data_lst)
-            if len(data_item_lst) >= 500:
-                data_queue.put(data_item_lst)
-                data_item_lst = []
-
-    if len(data_item_lst) > 0:
+        for file_path in batch_path_lst:
+            item_list = parse_data(file_path)
+            data_item_lst.extend(item_list)
         data_queue.put(data_item_lst)
 
     data_queue.put(None)
     put_worker.join()
-
     db.close()
-
 
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--input_path', type=str)
     parser.add_argument('--batch_size', type=int, default=10)
-    parser.add_argument('--num_workers', type=int)
     parser.add_argument('--db_path', type=str)
     args = parser.parse_args()
     return args

@@ -95,7 +95,7 @@ void flush_written_pages(PageBuffer* buffer, FILE* f) {
             buffer->page_map->erase(map_itr);  
         }
     }
-    if (buffer->last_write_page >= 0) {
+    if (buffer->last_write_page >= 0 && (buffer->last_write_page != last_page->page_no)) {
         map_itr = buffer->page_map->find(buffer->last_write_page);
         //the page may be written again and thus already removed and put in free page list.
         if (map_itr != buffer->page_map->end()) {
