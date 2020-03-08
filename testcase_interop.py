@@ -7,14 +7,17 @@ def test_put(args):
     db.open(args.db_path, opts)
 
     N = 10000;
-    data = {}
+    data = []
+    data_map = {}
     key_lst = []
     for i in range(N):
         key = str(i)
         key_lst.append(key)
         M = random.randint(10, 100);
         value = [random.uniform(1.0, 9.9) for _ in range(M)]
-        data[key] = value;
+        pair = [key, value]
+        data.append(pair);
+        data_map[key] = value
 
     db.put(data);
  
@@ -38,7 +41,7 @@ def test_put(args):
     
     for i in range(100):
         key = qry_keys[i]
-        value1 = data[key]
+        value1 = data_map[key]
         value2 = query_result[i]
 
         if value1 != value2:
