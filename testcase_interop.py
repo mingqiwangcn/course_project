@@ -15,14 +15,13 @@ def test_put(args):
         key_lst.append(key)
         M = random.randint(10, 100);
         value = [random.uniform(1.0, 9.9) for _ in range(M)]
-        pair = [key, value]
+        pair = (key, value)
         data.append(pair);
         data_map[key] = value
 
     db.put(data);
  
     stat_data = db.stats();
-    print(stat_data)
     
     db.close()
 
@@ -30,7 +29,6 @@ def test_put(args):
     db.open(args.db_path, opts)
 
     stat_data = db.stats();
-    print(stat_data)
 
     qry_keys = [];
     for i in range(100):
@@ -45,7 +43,8 @@ def test_put(args):
         value2 = query_result[i]
 
         if value1 != value2:
-            print(error);
+            print("error");
+            raise
 
     db.close()    
     print("OK")
