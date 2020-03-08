@@ -24,7 +24,7 @@ void batch_put(int batch, int N, vector<string>& key_lst, unordered_map<string, 
         int M =  rand() % 3  + 1;
         vector<double> value;
         for (j = 0; j < M; j++) {
-            double item =  (rand() % 100) * 1.0; //dis(gen);
+            double item =  dis(gen);
             value.push_back(item);
         }
         data[map_key] = value;
@@ -34,34 +34,26 @@ void batch_put(int batch, int N, vector<string>& key_lst, unordered_map<string, 
     interop_db_put(batch_data);
 }
 
-void test_python_interface() {
-    char path[100] = "/home/qmwang/code/course_project/example_db1";
-    unordered_map<string, string> opt_map;
-    interop_db_open(path, opt_map);
-    int i = 0;
-    int j = 0;
-    srand(1);
-    
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<> dis(1.0, 10.0);
-    unordered_map<string, vector<double>> data;
-    vector<string> key_lst;
-
-    int num_batch = 2;
-    int batch_size = 10000;
-    for (i = 0; i < num_batch; i++) {
-        batch_put(i, batch_size, key_lst, data, dis, gen); 
+void sequential_get(vector<string>& key_lst, unordered_map<string, vector<double>>& data) {
+    int i;
+    int N = key_lst.size();
+    for (i = 0; i < N; i++) {
+        vector<string> qry_list;
+        qry_list.push_back(key_lst[i]); 
+        vector<vector<double>> query_result = interop_db_get(qry_list);
+        string qry_key = key_lst[i];
+        vector<double> item_1 = data[qry_key];
+        vector<double> item_2 = query_result[0];
+        if (item_1 != item_2) {
+            throw "data is not equal";
+        }
     }
+}
 
-    int N = num_batch * batch_size;
-
-    interop_db_close();
-    
-    interop_db_open(path, opt_map);
-   
-    vector<vector<double>> query_result = interop_db_get(key_lst); 
-    /*
+void random_get(vector<string>& key_lst, unordered_map<string, vector<double>>& data) {
+    int i;
+    int j;
+    int N = key_lst.size(); 
     for (i=0; i < 100; i++) {
         vector<string> query_key_lst;
         for (j = 0; j < 100; j++) {
@@ -78,11 +70,37 @@ void test_python_interface() {
             }
         }
     }
-    */
+}
+
+void test_python_interface() {
+    char path[100] = "/home/qmwang/code/course_project/example_db1";
+    unordered_map<string, string> opt_map;
+    interop_db_open(path, opt_map);
+    srand(1);
+    
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis(1.0, 10.0);
+    unordered_map<string, vector<double>> data;
+    vector<string> key_lst;
+
+    int num_batch = 3;
+    int batch_size = 10000;
+    int i;
+    for (i = 0; i < num_batch; i++) {
+        batch_put(i, batch_size, key_lst, data, dis, gen); 
+    }
+
+    interop_db_close();
+    
+    interop_db_open(path, opt_map);
+    
+    random_get(key_lst, data); 
 
     std::cout << "OK" << std::endl;
     interop_db_close();
 }
+
 
 void test_put() {
     char path[100] = "/home/qmwang/code/course_project/example_db2";
