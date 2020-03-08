@@ -81,7 +81,9 @@ void flush_written_pages(PageBuffer* buffer, FILE* f) {
     list<Page*>::iterator itr;
     unordered_map<int, Page*>::iterator map_itr;
     Page* first_page = written_pages->front();
-    int offset = first_page->page_no * PAGE_SIZE;
+    
+    size_t sz_page_no = first_page->page_no;
+    size_t offset = sz_page_no * PAGE_SIZE;
     fseek(f, offset, SEEK_SET);
     Page* last_page = written_pages->back();
     for (itr = written_pages->begin(); itr != written_pages->end(); ++itr) {
@@ -161,8 +163,9 @@ Page* read_page(PageBuffer* buffer, FILE* f, int total_pages, int page_no) {
         itr = buffer->page_map->find(page->page_no);
         buffer->page_map->erase(itr);
         page->page_no = page_no; 
-    } 
-    int offset = page_no * PAGE_SIZE;
+    }
+    size_t sz_page_no = page_no; 
+    size_t offset = sz_page_no * PAGE_SIZE;
     fseek(f, offset, SEEK_SET);
     fread(page->data, 1, PAGE_SIZE, f);
     (*(buffer->page_map))[page_no] = page;

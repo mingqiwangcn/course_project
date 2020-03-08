@@ -8,7 +8,7 @@
 #define MAX_FULL_PATH_SIZE 300
 using namespace std;
 
-int PAGE_SIZE; 
+size_t PAGE_SIZE; 
 int PAGE_META_OFFSET;
 int META_PAGE_SIZE;
 int MAX_INDEX_BUFFER_SIZE;

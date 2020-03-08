@@ -29,6 +29,7 @@ def db_put_data():
             break
         N += len(batch_data)
         db.put(batch_data)
+        print('N=%d' % N);
    
     msg = 'total put db %d items \n' % N 
     print(msg)
@@ -69,8 +70,8 @@ def import_data(args):
     data_item_lst = []
     for idx in tqdm(range(0, N, batch_size)):
         batch_path_lst = file_path_lst[idx:(idx+batch_size)]
-        M = len(batch_path_lst)
-        for encode_data_lst in tqdm(work_pool.imap_unordered(parse_data, batch_path_lst), total=M):
+        M = len(batch_path_lst) 
+        for encode_data_lst in work_pool.map(parse_data, batch_path_lst):
             data_item_lst.extend(encode_data_lst)
             if len(data_item_lst) >= 500:
                 data_queue.put(data_item_lst)

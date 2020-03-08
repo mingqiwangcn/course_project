@@ -9,7 +9,7 @@
 
 using namespace std;
 
-extern int PAGE_SIZE; // page size for index and data page
+extern size_t PAGE_SIZE; // page size for index and data page
 extern int PAGE_META_OFFSET; // (PAGE_SIZE-sizeof(int)*2)
 extern int META_PAGE_SIZE; // page size for meta page, smaller than index and dats page.
 extern int MAX_INDEX_BUFFER_SIZE; //buffer capacity for index pages 
