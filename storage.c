@@ -109,10 +109,10 @@ DB* db_open(char* path, DBOpt* opt) {
     join_path(meta_file_path, path, meta_file_name);
 
     if (file_exist(meta_file_path)) {
-        db->f_meta = fopen(meta_file_path, "a+");
+        db->f_meta = fopen(meta_file_path, "r+");
         read_meta(db);
     } else {
-        db->f_meta = fopen(meta_file_path, "a+");
+        db->f_meta = fopen(meta_file_path, "w+");
         db->meta_page = new_meta_page();
     }
 
@@ -120,7 +120,11 @@ DB* db_open(char* path, DBOpt* opt) {
     char index_file_name[20] = "db.index";
     join_path(index_file_path, path, index_file_name);
     
-    db->f_index = fopen(index_file_path, "a+");
+    if (file_exist(index_file_path)) {
+        db->f_index = fopen(index_file_path, "r+");
+    } else {
+        db->f_index = fopen(index_file_path, "w+");
+    }
     if (db->total_index_pages > 0) {
         read_index(db);
     }
@@ -129,7 +133,11 @@ DB* db_open(char* path, DBOpt* opt) {
     char data_file_name[20] = "db.data";
     join_path(data_file_path, path, data_file_name);
 
-    db->f_data = fopen(data_file_path, "a+");
+    if (file_exist(data_file_path)) {
+        db->f_data = fopen(data_file_path, "r+");
+    } else {
+        db->f_data = fopen(data_file_path, "w+");
+    }
 
     return db;
 }
@@ -254,6 +262,12 @@ vector<DataItem*>* db_get(DB*db, vector<string>* key_lst) {
         map_itr = db->index_map->find(map_key);
         if (map_itr != db->index_map->end()) {
             IndexItem* index_item = map_itr->second;
+            
+            if (index_item->key[0] == '1') {
+                printf("get key %s page_no(%d) data_offset(%d) data_size(%d)\n", index_item->key, 
+                        index_item->page_no, index_item->offset, index_item->data_size);
+            }
+
             Page* data_page = read_data_page(db, index_item->page_no);
             DataItem* data_item = get_data_item(data_page, index_item->offset);
             strcpy(data_item->key, map_key.c_str());
@@ -291,16 +305,21 @@ void db_put(DB* db, vector<DataItem*>* data_items) {
         }
     }
     int i = 0;
-    int max_space = PAGE_META_OFFSET;
-    int space = max_space; 
-    int num_items= 0;
     int offset = get_page_offset(page);
+    int space = PAGE_META_OFFSET - offset;
+    int num_items= 0;
     list<IndexItem*>* index_item_lst = new list<IndexItem*>(); 
     while (i < item_size) {
         DataItem* cur_item = (*data_items)[i];
         int key_size = cur_item->key_size;
         int request_size = size_len + key_size + size_len + cur_item->data_size;
         if (request_size <= space) {
+            
+            if (i == 0) {
+                printf("key_size(%d) key(%s), page_no(%d), offset_in_page(%d), data_size(%d)\n", 
+                    key_size, cur_item->key, page->page_no, offset, cur_item->data_size);
+            }
+
             IndexItem* idx_item = create_IndexItem(key_size, cur_item->key, page->page_no, 
                                                    offset, cur_item->data_size);
             index_item_lst->push_back(idx_item);
@@ -317,7 +336,7 @@ void db_put(DB* db, vector<DataItem*>* data_items) {
             num_items += 1;
             i += 1;
         } else {
-            //fulli
+            //full
             if (num_items <= 0)
                 throw "error";
             
@@ -332,8 +351,8 @@ void db_put(DB* db, vector<DataItem*>* data_items) {
             new_page_no = db->total_data_pages; 
             page = request_new_page_to_append(db->data_buffer, db->f_data, new_page_no);
             num_items = 0;
-            offset = 0;
-            space = max_space;
+            offset = get_page_offset(page);
+            space = PAGE_META_OFFSET - offset;
         } 
     }
     if (num_items > 0) {
@@ -373,10 +392,9 @@ void write_index(DB* db, list<IndexItem*>* index_item_lst){
     int tola_size = sizeof(IndexItem*) * item_count;
     IndexItem** p_idx_items= (IndexItem**)malloc(tola_size);
     list<IndexItem*>::iterator itr;
-    int max_space = PAGE_META_OFFSET;
-    int space = max_space; 
-    int num_items= 0;
     int offset = get_page_offset(page);
+    int space = PAGE_META_OFFSET - offset;
+    int num_items= 0;
     int i = 0;
 
     for (itr = index_item_lst->begin(); itr != index_item_lst->end(); ++itr) {
@@ -419,8 +437,8 @@ void write_index(DB* db, list<IndexItem*>* index_item_lst){
             page = request_new_page_to_append(db->index_buffer, db->f_index, new_page_no);
             
             num_items = 0;
-            offset = 0;
-            space = max_space;
+            offset = get_page_offset(page);
+            space = PAGE_META_OFFSET - offset;
         }
     }
     i = 0;

@@ -95,9 +95,12 @@ void flush_written_pages(PageBuffer* buffer, FILE* f) {
     }
     if (buffer->last_write_page >= 0) {
         map_itr = buffer->page_map->find(buffer->last_write_page);
-        Page* pre_written_page = map_itr->second;
-        buffer->page_map->erase(map_itr);
-        buffer->free_pages->push_back(pre_written_page);
+        //the page may be written again and thus already removed and put in free page list.
+        if (map_itr != buffer->page_map->end()) {
+            Page* pre_written_page = map_itr->second;
+            buffer->page_map->erase(map_itr);
+            buffer->free_pages->push_back(pre_written_page);
+        }
     }
     buffer->last_write_page = last_page->page_no;
     written_pages->clear();
@@ -107,6 +110,7 @@ Page* request_new_page_to_append(PageBuffer* buffer, FILE* f, int new_page_no) {
     Page* page = NULL;
     if (buffer->free_pages->size() > 0) {
        page = buffer->free_pages->front();
+       reset_page(page);
        buffer->free_pages->pop_front(); 
     } else {
         int num_allocated = buffer->page_map->size();
@@ -120,6 +124,7 @@ Page* request_new_page_to_append(PageBuffer* buffer, FILE* f, int new_page_no) {
                 if (buffer->free_pages->size() == 0)
                     throw "buffer is too small.";
                 page = buffer->free_pages->front();
+                reset_page(page);
                 buffer->free_pages->pop_front();
             } else {
                 throw "buffer is full.";

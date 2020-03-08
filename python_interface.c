@@ -1,4 +1,4 @@
-#define PYTHON_INTERFACE
+//#define PYTHON_INTERFACE
 
 #ifdef PYTHON_INTERFACE
 #include <pybind11/pybind11.h>
@@ -65,9 +65,9 @@ vector<vector<double>> interop_db_get(vector<string>& key_lst) {
     return data_lst;
 }
 
-void interop_db_put(unordered_map<string, vector<double>>& data) {
+void interop_db_put(vector<pair<string, vector<double>>>& data) {
     vector<DataItem*> data_items;
-    std::unordered_map<string, vector<double>>::iterator itr;
+    vector<pair<string, vector<double>>>::iterator itr;
     for (itr = data.begin(); itr != data.end(); ++itr) {
         string map_key = itr->first;
         vector<double> double_values = itr->second;
