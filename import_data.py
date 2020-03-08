@@ -27,11 +27,11 @@ def db_put_data():
         batch_data = data_queue.get()
         if batch_data is None:
             break
-        N += len(batch_data)
+        N += (len(batch_data) / 100)
         db.put(batch_data)
         print('N=%d' % N);
    
-    msg = 'total put db %d items \n' % N 
+    msg = 'total put db %d blocks \n' % N 
     print(msg)
 
 
