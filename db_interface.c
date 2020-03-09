@@ -1,4 +1,4 @@
-#define PYTHON_INTERFACE
+//#define PYTHON_INTERFACE
 
 #ifdef PYTHON_INTERFACE
 #include <pybind11/pybind11.h>

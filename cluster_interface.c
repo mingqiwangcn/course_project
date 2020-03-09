@@ -21,23 +21,36 @@ extern void join_path(char* full_path, char* path, char* file_name);
 extern string get_opt(unordered_map<string, string>& options, string opt_name);
 
 typedef struct DBCluster {
-    vector<DB*> db_lst;
-    unordered_map<string, DB*> key_map;    
+    vector<DB*>* db_lst;
+    unordered_map<string, DB*>* key_map;    
 } DBCluster;
 
 DBCluster* db_cluster = NULL;
 
-list<string> get_db_lst(char* path) {
+vector<string> get_db_lst(char* path) {
     char full_path[MAX_PATH_SIZE];
     char file_name[100] = "meta.cfg";
     join_path(full_path, path, file_name);
     ifstream cfg_file(full_path);
     string line;
-    list<string> db_lst;
+    vector<string> db_lst;
     while (getline(cfg_file, line)) {
        db_lst.push_back(line); 
     }
     return db_lst;
+}
+
+void new_DBCluster() {
+   db_cluster = (DBCluster*)malloc(sizeof(DBCluster));
+   db_cluster->db_lst = new vector<DB*>();
+   db_cluster->key_map = new unordered_map<string, DB*>(); 
+}
+
+void free_DBCluster() {
+    delete db_cluster->db_lst;
+    delete db_cluster->key_map;
+    free(db_cluster);
+    db_cluster = NULL;
 }
 
 void cluster_db_open(char* path, unordered_map<string, string>& options) {
@@ -54,15 +67,20 @@ void cluster_db_open(char* path, unordered_map<string, string>& options) {
             opt.max_data_buffer_size = atoi(opt_max_data_buffer_size.c_str());
         }
     }
-    db_cluster = (DBCluster*)malloc(sizeof(DBCluster)); 
-    list<string> db_lst = get_db_lst(path);
-    int db_count = db_lst.size();
+    
+    new_DBCluster();
+    vector<string> part_name_lst = get_db_lst(path);
+    int db_count = part_name_lst.size();
     unordered_map<string, IndexItem*>::iterator idx_itr;
     for (int i = 0; i < db_count; i++) {
-        DB* db = db_open(path, &opt);
-        db_cluster->db_lst.push_back(db);
+        string part_db_path = path + part_name_lst[i];
+        char db_path[MAX_PATH_SIZE];
+        strcpy(db_path, part_db_path.c_str()); 
+        DB* db = db_open(db_path, &opt);
+        db_cluster->db_lst->push_back(db);
         for (idx_itr = db->index_map->begin(); idx_itr != db->index_map->end(); ++idx_itr) {
-            db_cluster->key_map[idx_itr->first] = db;
+            string index_key = idx_itr->first;
+            (*(db_cluster->key_map))[index_key] = db;
         }
     }
 }
@@ -74,7 +92,7 @@ vector<vector<double>> cluster_db_get(vector<string>& key_lst) {
     int key_count = key_lst.size();
     for (int i = 0; i < key_count; i++) {
         string key = key_lst[i];
-        DB* db = db_cluster->key_map[key];
+        DB* db = (*(db_cluster->key_map))[key];
         itr = db_key_map.find(db);
         if (itr == db_key_map.end()) {
             vector<string> part_keys;
@@ -111,11 +129,11 @@ vector<vector<double>> cluster_db_get(vector<string>& key_lst) {
 
 void cluster_db_close() {
     if (db_cluster != NULL) {
-        int db_count = db_cluster->db_lst.size();
+        int db_count = db_cluster->db_lst->size();
         for (int i =0; i< db_count; i++) {
-            db_close(db_cluster->db_lst[i]);
+            db_close((*db_cluster->db_lst)[i]);
         }
-        free(db_cluster);
+        free_DBCluster();
     }
 }
 

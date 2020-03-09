@@ -102,7 +102,7 @@ unordered_map<string, vector<double>> put_data(char* path, char* key_prefix) {
 
     interop_db_close();
 
-    std::cout << "OK" << std::endl;
+    std::cout << "put data ok" << std::endl;
 
     return data;
 }
@@ -127,6 +127,7 @@ void cluster_query(unordered_map<string, vector<double>> data) {
         sprintf(key, "%s-%d-%d", "key3", 0, m);
         qry_keys.push_back(key);
     }
+  
     vector<vector<double>> query_result = cluster_db_get(qry_keys);
     
     for (int j =0; j < 100; j++) {
@@ -137,6 +138,11 @@ void cluster_query(unordered_map<string, vector<double>> data) {
             throw "data is not euqal";
         }
     }
+
+    cluster_db_close();
+
+    cout << "cluster get ok" << endl;
+
 }
            
 int main() {
