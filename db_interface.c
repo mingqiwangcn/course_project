@@ -15,18 +15,10 @@ extern DB* db_open(char* path, DBOpt* opt);
 extern vector<DataItem*>* db_get(DB*db, vector<string>* key_lst);
 extern void db_put(DB* db, vector<DataItem*>* data_items);
 extern void db_close(DB* db);
+extern string get_opt(unordered_map<string, string>& options, string opt_name);
+
+
 DB* g_db = NULL;
-
-
-string get_opt(unordered_map<string, string>& options, string opt_name) {
-    unordered_map<string, string>::iterator itr;
-    itr = options.find(opt_name);
-    if (itr != options.end()) {
-        return itr->second;
-    } else {
-        return "";
-    }
-}
 
 void interop_db_open(char* path, unordered_map<string, string>& options) {
     DBOpt opt;

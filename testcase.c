@@ -5,11 +5,15 @@
 #include <unordered_map>
 #include <random>
 #include <utility>
+using namespace std;
 
 extern void interop_db_open(char* path, unordered_map<string, string>& options);
 extern vector<vector<double>> interop_db_get(vector<string>& key_lst);
 extern void interop_db_put(vector<pair<string, vector<double>>>& data);
 extern void interop_db_close();
+extern void cluster_db_open(char* path, unordered_map<string, string>& options);
+extern vector<vector<double>> cluster_db_get(vector<string>& key_lst);
+extern void cluster_db_close();
 
 void batch_put(char* key_prefix, int batch, int N, vector<string>& key_lst, unordered_map<string, 
     vector<double>>& data,std::uniform_real_distribution<>& dis, std::mt19937& gen) {
@@ -28,7 +32,6 @@ void batch_put(char* key_prefix, int batch, int N, vector<string>& key_lst, unor
             value.push_back(item);
         }
         data[map_key] = value;
-        
         batch_data.push_back(std::make_pair(map_key, value));
     }
     interop_db_put(batch_data);
@@ -72,10 +75,9 @@ void random_get(vector<string>& key_lst, unordered_map<string, vector<double>>& 
     }
 }
 
-void test_python_interface(char* path, char* key_prefix) {
+unordered_map<string, vector<double>> put_data(char* path, char* key_prefix) {
     unordered_map<string, string> opt_map;
     interop_db_open(path, opt_map);
-    srand(1);
     
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -98,99 +100,68 @@ void test_python_interface(char* path, char* key_prefix) {
     
     random_get(key_lst, data); 
 
-    std::cout << "OK" << std::endl;
     interop_db_close();
-}
 
-
-void test_put() {
-    char path[100] = "/home/qmwang/code/course_project/example_db2";
-    DBOpt* opt = NULL;
-    DB* db = db_open(path, opt);  
-    int N = 10000;
-    int i = 0;
-    int j = 0;
-    srand(1);
-
-    DataItem* p_items = (DataItem*)malloc(sizeof(DataItem)*N);
-    vector<string> key_lst;
-    vector<DataItem*> data_item_lst;
-    unordered_map<string, DataItem*> item_map; 
-    for (i = 0; i < N; i++) {
-        char key[20];
-        sprintf(key, "%d", i);
-        int key_size = strlen(key) + 1;
-        p_items[i].key = (char*)malloc(key_size);
-        strcpy(p_items[i].key, key);
-        string item_key(key); 
-        key_lst.push_back(item_key);
-        int M =  rand() % 2000 + 20;
-        p_items[i].key_size = strlen(key) + 1;
-        p_items[i].value = (char*)malloc(M);
-        for (j = 0; j < M; j++) {
-            p_items[i].value[j] = (rand() % 128);
-        }
-        p_items[i].value[M-1] = '\0';
-        p_items[i].data_size = M;
-        data_item_lst.push_back(p_items + i);
-        item_map[item_key] = p_items + i;
-    }
-    
-    db_put(db, &data_item_lst);
-    db_close(db);
-    db = NULL;
-    // open
-    db = db_open(path, opt);
-    std::cout << "total items: " << db->total_items << std::endl;
-   
-    for (i=0; i < 100; i++) {
-        vector<string> query_key_lst;
-        for (j = 0; j < 100; j++) {
-            int pos = rand() % N;
-            query_key_lst.push_back(key_lst[pos]);
-        }
-        vector<DataItem*>* query_result = db_get(db, &query_key_lst);
-        for (j = 0; j < 100; j++) {
-            string map_key = query_key_lst[j];
-            DataItem* item_1 = item_map.find(map_key)->second;
-            DataItem* item_2 = (*query_result)[j];
-            if (strcmp(item_1->key, item_2->key) != 0) {
-                throw "key not euqal";
-            }
-            if (item_1->data_size != item_2->data_size) {
-                throw "size not equal";
-            }
-            if (memcmp(item_1->value, item_2->value, item_1->data_size) != 0) {
-                throw "value not equal";
-            }
-            free(item_2->key);
-            free(item_2->value);
-            free(item_2);
-        }
-        delete query_result;
-    }
     std::cout << "OK" << std::endl;
-    for (i =0; i < N; i++) {
-        free(p_items[i].key);
-        free(p_items[i].value);
-    }
-    free(p_items);
-    db_close(db);
+
+    return data;
 }
 
+void cluster_query(unordered_map<string, vector<double>> data) {
+    char path[] = "/home/qmwang/code/course_project/example_db/";
+    unordered_map<string, string> options;
+    cluster_db_open(path, options);
+    vector<string> qry_keys;
+    int N = 10000;
+    for (int i =0 ; i< 100; i++) {
+        char key[100];
+        int m = rand() % N;
+        sprintf(key, "%s-%d-%d", "key1", 0, m);
+        qry_keys.push_back(key);
+
+        m = rand() % N;
+        sprintf(key, "%s-%d-%d", "key2", 0, m);
+        qry_keys.push_back(key);
+
+        m = rand() % N;
+        sprintf(key, "%s-%d-%d", "key3", 0, m);
+        qry_keys.push_back(key);
+    }
+    vector<vector<double>> query_result = cluster_db_get(qry_keys);
+    
+    for (int j =0; j < 100; j++) {
+        string qry_key = qry_keys[j];
+        vector<double> item_1 = data[qry_key];
+        vector<double> item_2 = query_result[j];
+        if (item_1 != item_2) {
+            throw "data is not euqal";
+        }
+    }
+}
+           
 int main() {
+    srand(1);
     try {
+        unordered_map<string, vector<double>> data_1;
+        unordered_map<string, vector<double>> data_2;
+        unordered_map<string, vector<double>> data_3; 
+
         char path_1[] = "/home/qmwang/code/course_project/example_db/part_1";  
         char key_prefix_1[] = "key1";
-        test_python_interface(path_1, key_prefix_1);
+        data_1 = put_data(path_1, key_prefix_1);
         
         char path_2[] = "/home/qmwang/code/course_project/example_db/part_2";
         char key_prefix_2[] = "key2";
-        test_python_interface(path_2, key_prefix_2);
+        data_2 = put_data(path_2, key_prefix_2);
 
         char path_3[] = "/home/qmwang/code/course_project/example_db/part_3";
         char key_prefix_3[] = "key3";
-        test_python_interface(path_3, key_prefix_3);
+        data_3 = put_data(path_3, key_prefix_3);
+
+        data_1.insert(data_2.begin(), data_2.end());
+        data_1.insert(data_3.begin(), data_3.end());
+
+        cluster_query(data_1); 
 
     }
     catch (char const* msg) {
