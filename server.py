@@ -2,7 +2,7 @@ import http.server as BaseHTTPServer
 import sys
 import json
 
-import db_storage as db;
+import db_cluster as db;
 
 class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def do_POST(self):

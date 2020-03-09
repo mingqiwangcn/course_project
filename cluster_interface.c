@@ -1,4 +1,4 @@
-//#define PYTHON_INTERFACE
+#define PYTHON_INTERFACE
 
 #ifdef PYTHON_INTERFACE
 #include <pybind11/pybind11.h>
@@ -138,7 +138,7 @@ void cluster_db_close() {
 }
 
 #ifdef PYTHON_INTERFACE
-PYBIND11_MODULE(db_storage, m) {
+PYBIND11_MODULE(db_cluster, m) {
     m.doc() = "db_cluster"; // optional module docstring
     m.def("open", &cluster_db_open, "open database");
     m.def("get", &cluster_db_get, "get data");
