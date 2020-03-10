@@ -9,12 +9,6 @@
 
 using namespace std;
 
-extern size_t PAGE_SIZE; // page size for index and data page
-extern int PAGE_META_OFFSET; // (PAGE_SIZE-sizeof(int)*2)
-extern int META_PAGE_SIZE; // page size for meta page, smaller than index and dats page.
-extern int MAX_INDEX_BUFFER_SIZE; //buffer capacity for index pages 
-extern int MAX_DATA_BUFFER_SIZE; //buffer capacity for data pages
-
 enum PageType {index_page, data_page};
 
 typedef struct IndexItem {
@@ -54,6 +48,12 @@ typedef struct DB {
 
     PageBuffer* index_buffer;
     PageBuffer* data_buffer;
+    
+    size_t PAGE_SIZE;               // page size for index and data page
+    int PAGE_META_OFFSET;           // (PAGE_SIZE-sizeof(int)*2)
+    int META_PAGE_SIZE;             // page size for meta page, smaller than index and dats page.
+    int MAX_INDEX_BUFFER_SIZE;      //buffer capacity for index pages
+    int MAX_DATA_BUFFER_SIZE;       //buffer capacity for data pages
      
 } DB;
 

@@ -17,35 +17,35 @@ PageBuffer* new_page_buffer(int capacity) {
 }
 
 
-int get_page_offset(Page* page) {
+int get_page_offset(DB* db, Page* page) {
     int offset = 0;
-    memcpy(&offset, page->data+PAGE_META_OFFSET, sizeof(int));
+    memcpy(&offset, page->data+(db->PAGE_META_OFFSET), sizeof(int));
     return offset;
 }
 
-void set_page_offset(Page* page, int offset) {
-    memcpy(page->data+PAGE_META_OFFSET, &offset, sizeof(int));
+void set_page_offset(DB* db, Page* page, int offset) {
+    memcpy(page->data+(db->PAGE_META_OFFSET), &offset, sizeof(int));
 }
 
-void set_page_item_count(Page* page, int item_count) {
-      memcpy(page->data+PAGE_META_OFFSET+sizeof(int), &item_count, sizeof(int));
+void set_page_item_count(DB* db, Page* page, int item_count) {
+      memcpy(page->data+(db->PAGE_META_OFFSET)+sizeof(int), &item_count, sizeof(int));
 }
 
-bool fit_page(Page* page, int space_needed) {
-    int space = PAGE_META_OFFSET - get_page_offset(page);
+bool fit_page(DB* db, Page* page, int space_needed) {
+    int space = (db->PAGE_META_OFFSET) - get_page_offset(db, page);
     return space >= space_needed;
 }
 
-void reset_page(Page* page) {
+void reset_page(DB* db, Page* page) {
     page->page_no = -1;
-    set_page_offset(page, 0);
-    set_page_item_count(page, 0);
+    set_page_offset(db, page, 0);
+    set_page_item_count(db, page, 0);
 }
 
-Page* new_page() {
+Page* new_page(DB* db) {
     Page* page = (Page*)malloc(sizeof(Page));
-    page->data = (char*)malloc(PAGE_SIZE);
-    reset_page(page); 
+    page->data = (char*)malloc(db->PAGE_SIZE);
+    reset_page(db, page); 
     return page;
 }
 
@@ -76,19 +76,19 @@ void free_page_buffer(PageBuffer* buffer) {
     free(buffer);
 }
 
-void flush_written_pages(PageBuffer* buffer, FILE* f) {
+void flush_written_pages(DB* db, PageBuffer* buffer, FILE* f) {
     list<Page*>* written_pages = buffer->written_pages;
     list<Page*>::iterator itr;
     unordered_map<int, Page*>::iterator map_itr;
     Page* first_page = written_pages->front();
     
     size_t sz_page_no = first_page->page_no;
-    size_t offset = sz_page_no * PAGE_SIZE;
+    size_t offset = sz_page_no * (db->PAGE_SIZE);
     fseek(f, offset, SEEK_SET);
     Page* last_page = written_pages->back();
     for (itr = written_pages->begin(); itr != written_pages->end(); ++itr) {
         Page* page = *itr;
-        fwrite(page->data, 1, PAGE_SIZE, f);
+        fwrite(page->data, 1, db->PAGE_SIZE, f);
         if (page != last_page) {
             buffer->free_pages->push_back(page);
             map_itr = buffer->page_map->find(page->page_no);
@@ -108,25 +108,25 @@ void flush_written_pages(PageBuffer* buffer, FILE* f) {
     written_pages->clear();
 }
 
-Page* request_new_page_to_append(PageBuffer* buffer, FILE* f, int new_page_no) {
+Page* request_new_page_to_append(DB* db, PageBuffer* buffer, FILE* f, int new_page_no) {
     Page* page = NULL;
     if (buffer->free_pages->size() > 0) {
        page = buffer->free_pages->front();
-       reset_page(page);
+       reset_page(db, page);
        buffer->free_pages->pop_front(); 
     } else {
         int num_allocated = buffer->page_map->size();
         if (num_allocated < buffer->capacity) {
-            page = new_page();
+            page = new_page(db);
         } else {
             if (buffer->written_pages->size() > 0) {
                 //write to disk for more free pages
-                flush_written_pages(buffer, f);
+                flush_written_pages(db, buffer, f);
                 //allocate one from free_pages
                 if (buffer->free_pages->size() == 0)
                     throw "buffer is too small.";
                 page = buffer->free_pages->front();
-                reset_page(page);
+                reset_page(db, page);
                 buffer->free_pages->pop_front();
             } else {
                 throw "buffer is full.";
@@ -141,7 +141,7 @@ Page* request_new_page_to_append(PageBuffer* buffer, FILE* f, int new_page_no) {
     return page;
 }
 
-Page* read_page(PageBuffer* buffer, FILE* f, int total_pages, int page_no) {
+Page* read_page(DB* db, PageBuffer* buffer, FILE* f, int total_pages, int page_no) {
     if (page_no < 0 || page_no >= total_pages) {
         throw "invalid page_no";
     }
@@ -154,7 +154,7 @@ Page* read_page(PageBuffer* buffer, FILE* f, int total_pages, int page_no) {
     }
    
     if (buffer->page_map->size() < buffer->capacity) {
-        page = new_page();
+        page = new_page(db);
         page->page_no = page_no;
     } else {
         //need to evict some page by enter_queue
@@ -165,9 +165,9 @@ Page* read_page(PageBuffer* buffer, FILE* f, int total_pages, int page_no) {
         page->page_no = page_no; 
     }
     size_t sz_page_no = page_no; 
-    size_t offset = sz_page_no * PAGE_SIZE;
+    size_t offset = sz_page_no * (db->PAGE_SIZE);
     fseek(f, offset, SEEK_SET);
-    fread(page->data, 1, PAGE_SIZE, f);
+    fread(page->data, 1, db->PAGE_SIZE, f);
     (*(buffer->page_map))[page_no] = page;
     buffer->enter_queue->push_back(page);
     return page;
@@ -175,35 +175,35 @@ Page* read_page(PageBuffer* buffer, FILE* f, int total_pages, int page_no) {
 
 
 Page* read_index_page(DB* db, int page_no) {
-    Page* page = read_page(db->index_buffer, db->f_index, db->total_index_pages, page_no);
+    Page* page = read_page(db, db->index_buffer, db->f_index, db->total_index_pages, page_no);
     return page;
 }
 
 Page* read_data_page(DB* db, int page_no) {
-    Page* page = read_page(db->data_buffer, db->f_data, db->total_data_pages, page_no);
+    Page* page = read_page(db, db->data_buffer, db->f_data, db->total_data_pages, page_no);
     return page;
 }
 
 
-Page* new_meta_page() {
+Page* new_meta_page(DB* db) {
     Page* page = (Page*)malloc(sizeof(Page));
-    page->data = (char*)malloc(META_PAGE_SIZE);
+    page->data = (char*)malloc(db->META_PAGE_SIZE);
     size_t N = sizeof(int) * 3;
     memset(page->data, 0, N);
     page->page_no = 0;
     return page;
 }
 
-Page* read_meta_page(FILE* f) {
+Page* read_meta_page(DB* db, FILE* f) {
     fseek(f, 0, SEEK_SET);
-    Page* page = new_meta_page();
-    fread(page->data, 1, META_PAGE_SIZE, f);
+    Page* page = new_meta_page(db);
+    fread(page->data, 1, db->META_PAGE_SIZE, f);
     return page;
 }
 
-void write_meta_page(FILE* f, Page* page) {
+void write_meta_page(DB* db, FILE* f, Page* page) {
     fseek(f, 0, SEEK_SET);
-    fwrite(page->data, 1, META_PAGE_SIZE, f);
+    fwrite(page->data, 1, db->META_PAGE_SIZE, f);
 }
 
 
