@@ -1,6 +1,9 @@
 import argparse;
-import db_storage as db;
+import db_storage as db
+import db_cluster as db_cls
 import random
+import json
+import time
 
 def test_put(args):
     opts = {}
@@ -55,10 +58,25 @@ def get_args():
     args = parser.parse_args()
     return args
 
+def cls_get():
+    db_cls.open('/home/cc/md0/passage_db/', {})
+    
+    with open('item_keys.json') as f:
+        item_keys = json.load(f)
+
+    t1 = time.time()
+    values = db_cls.get(item_keys);
+    t2 = time.time()
+
+    print('time %.2f' % (t2-t1))
+
+    db_cls.close()
+
 
 def main():
     args = get_args();
-    test_put(args)
+    #test_put(args)
+    cls_get()
 
 if __name__ == '__main__':
     main();

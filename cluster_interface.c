@@ -5,12 +5,15 @@
 #include <pybind11/stl.h>
 #endif
 
+#include <algorithm>
 #include <string.h>
 #include <fstream>
+#include <thread>
+#include <future>
 #include "storage.h"
+#include <iostream>
 
 using namespace std;
-
 
 extern void init_DBOpt(DBOpt& opt);
 extern DB* db_open(char* path, DBOpt* opt);
@@ -85,6 +88,21 @@ void cluster_db_open(char* path, unordered_map<string, string>& options) {
     }
 }
 
+vector<DataItem*>* db_get_thread(DB* db, vector<string>* qry_keys) {
+    vector<pair<int, string>> page_no_key_maps;
+    for (int j = 0; j < qry_keys->size(); j++) {
+        string index_key = (*qry_keys)[j];
+        IndexItem* p_item =  (*(db->index_map))[index_key];
+        page_no_key_maps.push_back(pair<int, string>(p_item->page_no, index_key));
+    }
+    sort(page_no_key_maps.begin(), page_no_key_maps.end());
+    vector<string> sorted_keys;
+    for (int i = 0; i < page_no_key_maps.size(); i++) {
+        sorted_keys.push_back(page_no_key_maps[i].second);
+    }
+    return db_get(db, &sorted_keys);
+}
+
 vector<vector<double>> cluster_db_get(vector<string>& key_lst) {
     unordered_map<string, vector<double>> result_map;
     unordered_map<DB*, vector<string>> db_key_map;
@@ -103,9 +121,15 @@ vector<vector<double>> cluster_db_get(vector<string>& key_lst) {
         }
     }
     vector<DataItem*>::iterator data_item_itr;
+
+    vector< future<vector<DataItem*>*> > future_lst;
+
     for (itr = db_key_map.begin(); itr != db_key_map.end(); ++itr) {
         DB* db = itr->first;
-        vector<DataItem*>* data_items = db_get(db, &(itr->second));
+        future_lst.push_back(std::async(db_get_thread, db, &(itr->second)));
+    }
+    for (int i = 0; i < future_lst.size(); i++) {
+        vector<DataItem*>* data_items = future_lst[i].get(); 
         for (data_item_itr = data_items->begin(); data_item_itr != data_items->end(); ++data_item_itr) {
             DataItem* item = *data_item_itr;
             double* double_values = (double*)item->value;

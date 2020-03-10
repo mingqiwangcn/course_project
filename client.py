@@ -1,6 +1,6 @@
 import requests
 import json
-
+import time
 
 def get_item_values(item_keys):
     r = requests.post('http://localhost:8080', json=item_keys)
@@ -8,12 +8,16 @@ def get_item_values(item_keys):
     return item_values
 
 def main():
-    item_keys = ['0-1', '1-2', '0-3']
+    with open('item_keys.json') as f:
+        item_keys = json.load(f)
+
+    t1 = time.time()
     item_values = get_item_values(item_keys)
+    t2 = time.time()
     
-    for value in item_values:
-        print(value)
-     
+    print('time %.2f' % (t2 - t1))
+
+    print(len(item_values)) 
 
 if __name__ == '__main__':
 

@@ -3,6 +3,7 @@ import sys
 import json
 
 import db_cluster as db;
+import time
 
 class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def do_POST(self):
@@ -10,7 +11,12 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         post_body = self.rfile.read(content_len)
         
         item_keys = json.loads(post_body.decode())
+
+        t1 = time.time()
         item_values = db.get(item_keys)
+        t2 = time.time()
+
+        print('time : %.2f' % (t2-t1) )
 
         self.send_response(200)
         self.end_headers()
