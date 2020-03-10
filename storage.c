@@ -54,8 +54,8 @@ void read_cfg(DB* db, char*db_path) {
 }
 
 void read_opts(DB* db, DBOpt* opt) {
-    db->MAX_INDEX_BUFFER_SIZE = 200;
-    db->MAX_DATA_BUFFER_SIZE = 1000;
+    db->MAX_INDEX_BUFFER_SIZE = 2000;
+    db->MAX_DATA_BUFFER_SIZE = 10000;
     if (opt != NULL) {
         if (opt->max_index_buffer_size < 0)
             db->MAX_INDEX_BUFFER_SIZE = opt->max_index_buffer_size;
@@ -320,8 +320,10 @@ void db_put(DB* db, vector<DataItem*>* data_items) {
             i += 1;
         } else {
             //full
-            if (num_items <= 0)
-                throw "error";
+            if (num_items <= 0) {
+                printf("size(%d) needed for this item.\n", request_size);
+                throw "page is too small";
+            }
             
             memset(page->data+offset, 0, (db->PAGE_META_OFFSET) - offset);
              
