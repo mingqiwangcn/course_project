@@ -54,7 +54,7 @@ typedef struct DB {
     int META_PAGE_SIZE;             // page size for meta page, smaller than index and dats page.
     int MAX_INDEX_BUFFER_SIZE;      //buffer capacity for index pages
     int MAX_DATA_BUFFER_SIZE;       //buffer capacity for data pages
-     
+
 } DB;
 
 typedef struct DataItem {
@@ -65,6 +65,7 @@ typedef struct DataItem {
 } DataItem;
 
 typedef struct DBOpt {
+   DBOpt() : max_index_buffer_size{0}, max_data_buffer_size{0} {}
    int max_index_buffer_size;
    int max_data_buffer_size;
 } DBOpt;

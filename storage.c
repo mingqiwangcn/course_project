@@ -54,10 +54,10 @@ void read_cfg(DB* db, char*db_path) {
 }
 
 void read_opts(DB* db, DBOpt* opt) {
-    db->MAX_INDEX_BUFFER_SIZE = 2000;
-    db->MAX_DATA_BUFFER_SIZE = 10000;
+    db->MAX_INDEX_BUFFER_SIZE = 200;
+    db->MAX_DATA_BUFFER_SIZE = 2000;
     if (opt != NULL) {
-        if (opt->max_index_buffer_size < 0)
+        if (opt->max_index_buffer_size > 0)
             db->MAX_INDEX_BUFFER_SIZE = opt->max_index_buffer_size;
         if (opt->max_data_buffer_size > 0)
             db->MAX_DATA_BUFFER_SIZE = opt->max_data_buffer_size; 
@@ -284,7 +284,8 @@ void db_put(DB* db, vector<DataItem*>* data_items) {
     } else {
         int last_page_no = db->total_data_pages - 1;
         Page* last_page = read_data_page(db, last_page_no);
-        int min_space = size_len + (*data_items)[0]->data_size;
+        DataItem* first_item = (*data_items)[0];
+        int min_space = size_len + first_item->key_size + size_len + first_item->data_size;
         bool fit_flag = fit_page(db, last_page, min_space);
         if (fit_flag) {
             page = last_page;
@@ -321,8 +322,8 @@ void db_put(DB* db, vector<DataItem*>* data_items) {
         } else {
             //full
             if (num_items <= 0) {
-                printf("size(%d) needed for this item.\n", request_size);
-                throw "page is too small";
+                printf("size(%d) needed for this data item.\n", request_size);
+                throw "data page is too small";
             }
             
             memset(page->data+offset, 0, (db->PAGE_META_OFFSET) - offset);
@@ -355,9 +356,9 @@ void db_put(DB* db, vector<DataItem*>* data_items) {
     write_meta(db);    
 }
 
+
 void write_index(DB* db, list<IndexItem*>* index_item_lst){
     int index_item_size = 0;
-    int min_space = index_item_size;
     int new_page_no = db->total_index_pages;
     Page* page = NULL;
     if (db->total_index_pages == 0) {
@@ -366,6 +367,8 @@ void write_index(DB* db, list<IndexItem*>* index_item_lst){
     } else {
         int last_page_no = db->total_index_pages - 1;
         Page* last_page = read_index_page(db, last_page_no);
+        IndexItem* first_item = index_item_lst->front();
+        int min_space = sizeof(int) + first_item->key_size + sizeof(int) * 3;
         bool fit_flag = fit_page(db, last_page, min_space);
         if (fit_flag) {
             page = last_page;
@@ -410,8 +413,10 @@ void write_index(DB* db, list<IndexItem*>* index_item_lst){
 
         } else {
             //page is full.
-            if (num_items <= 0)
-                throw "error";
+            if (num_items <= 0) {
+                printf("size(%d) needed for this index item.\n", index_item_size);
+                throw "index page is too small";
+            }
             
             memset(page->data+offset, 0, (db->PAGE_META_OFFSET) - offset);
              

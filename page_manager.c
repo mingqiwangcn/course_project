@@ -152,12 +152,13 @@ Page* read_page(DB* db, PageBuffer* buffer, FILE* f, int total_pages, int page_n
         page = itr->second;
         return page;
     }
-   
+       
     if (buffer->page_map->size() < buffer->capacity) {
         page = new_page(db);
         page->page_no = page_no;
     } else {
         //need to evict some page by enter_queue
+
         page = buffer->enter_queue->front();
         buffer->enter_queue->pop_front();
         itr = buffer->page_map->find(page->page_no);
