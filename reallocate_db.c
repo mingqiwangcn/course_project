@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
     int j = 0;
     int item_count = 0;
     for (i = 1; i <= 9; i++) {
-        sprintf(path, "/home/cc/md0/passage_db/passage_db_%d/", 10);
+        sprintf(path, "/home/cc/md0/passage_db/passage_db_%d/", i);
         
         get_db_stat(path, keep_keys, no_keep_keys);
 

@@ -92,14 +92,16 @@ int export_import(int argc, char *argv[]) {
     opt_import.max_data_buffer_size = 1000; 
     DB* db_import = db_open(import_db_path, &opt_import);
     
-    //step 2, import allocated keys from part_10.
+    cout << "step 1" << endl; 
     import_by_keys(db_export, db_import, export_key_file_path); 
 
     db_close(db_export);
 
     DB* db_realloc = db_open(realloc_db_path, &opt_export);
-  
+    cout << "step 2" << endl;
     import_by_keys(db_realloc, db_import, realloc_key_file_path); 
+
+    db_close(db_realloc);
 
     db_close(db_import);
 
