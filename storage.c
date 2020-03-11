@@ -82,6 +82,7 @@ void init_db(DB* db, DBOpt* opt) {
     db->index_map = NULL;
     db->index_buffer = new_page_buffer(db->MAX_INDEX_BUFFER_SIZE);
     db->data_buffer = new_page_buffer(db->MAX_DATA_BUFFER_SIZE);
+    db->index_keys = new vector<string>();
 }
 
 bool file_exist(char *filename)
@@ -204,6 +205,8 @@ void create_index_items(DB* db, Page* page) {
 
         string map_key(index_item->key);
         (*(db->index_map))[map_key] = index_item;
+
+        db->index_keys->push_back(map_key);
     }
 }
 

@@ -45,6 +45,7 @@ typedef struct DB {
     Page* meta_page;
 
     unordered_map<string, IndexItem*>* index_map;
+    vector<string>* index_keys;
 
     PageBuffer* index_buffer;
     PageBuffer* data_buffer;
