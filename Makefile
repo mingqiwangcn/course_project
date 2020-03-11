@@ -4,6 +4,8 @@ import:
 	g++ -o export_import export_import.c storage.c page_manager.c
 realloc_import:
 	g++ -o realloc_export_import realloc_export_import.c storage.c page_manager.c
+realloc_import_part_10:
+	g++ -o realloc_export_import_part_10 realloc_export_import_part_10.c storage.c page_manager.c
 stat:
 	g++ -g -o stat_db stat_db.c storage.c page_manager.c
 reallocate:
