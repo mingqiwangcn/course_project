@@ -2,6 +2,8 @@ db:
 	g++ -g -o testcase testcase.c storage.c page_manager.c db_interface.c cluster_interface.c utils.c
 import:
 	g++ -o export_import export_import.c storage.c page_manager.c
+realloc_import:
+	g++ -g -o realloc_export_import realloc_export_import.c storage.c page_manager.c
 stat:
 	g++ -g -o stat_db stat_db.c storage.c page_manager.c
 reallocate:
