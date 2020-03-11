@@ -459,6 +459,7 @@ void free_index_map(DB* db) {
         free(item);
     }
     delete db->index_map;
+    delete db->index_keys;
 }
 
 void db_close(DB* db) {
