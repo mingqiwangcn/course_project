@@ -34,8 +34,11 @@ void do_import(DB* new_db, vector<DataItem*>* data_items) {
     free(data_items);
 }
 
-void import_by_keys(DB* export_db, DB* import_db, char* key_file_path) {
-    int batch_size = 20;
+void import_by_keys(int db_no, DB* export_db, DB* import_db, char* key_file_path) {
+
+    printf("start to import from db %d\n", db_no);
+
+    int batch_size = 200;
     vector<string> input_keys;
     read_keys(key_file_path, input_keys);
     vector<string> batch_keys;
@@ -47,12 +50,15 @@ void import_by_keys(DB* export_db, DB* import_db, char* key_file_path) {
     double total_time = 0;
     duration<double> time_used;
     size_t index_key_count = input_keys.size();
+   
+    int total_num = 0;
     
     for (int i = 0; i < index_key_count; i++) {
         string map_key = input_keys[i];
         batch_keys.push_back(map_key);
         if (batch_keys.size() == batch_size) {
             vector<DataItem*>* data_items = db_get(export_db, &batch_keys);
+            total_num += data_items->size();
             do_import(import_db, data_items);
             batch_keys.clear();
             num += 1;
@@ -65,6 +71,7 @@ void import_by_keys(DB* export_db, DB* import_db, char* key_file_path) {
     }
     if (batch_keys.size() > 0) {
         vector<DataItem*>* data_items = db_get(export_db, &batch_keys);
+        total_num += data_items->size();
         do_import(import_db, data_items);
         batch_keys.clear();
     
@@ -74,6 +81,7 @@ void import_by_keys(DB* export_db, DB* import_db, char* key_file_path) {
         num += 1;
         printf("time %.2f toltal time %.2f %d/%d\n", time_used.count(), total_time, num, num_batch);
     }
+    printf("import from db %d %d items\n", db_no, total_num);
 }
 
 int export_import(int argc, char *argv[]) {
@@ -85,7 +93,7 @@ int export_import(int argc, char *argv[]) {
     opt_import.max_index_buffer_size = 500;
     opt_import.max_data_buffer_size = 1000; 
     
-    char import_db_path[] = "/home/cc/data/part_10/part_10-618";
+    char import_db_path[] = "/home/cc/data/part_10/part_10-632";
     DB* db_import = db_open(import_db_path, &opt_import);
     
     for (int i = 1; i <= 10; i++) {
@@ -96,7 +104,10 @@ int export_import(int argc, char *argv[]) {
         
         DB* db_export = db_open(export_db_path, &opt_export);
 
-        import_by_keys(db_export, db_import, export_key_file_path);
+        import_by_keys(i, db_export, db_import, export_key_file_path);
+
+        printf("Now  %d data items and %lu index items\n", 
+               db_import->total_items, db_import->index_keys->size());
         
         db_close(db_export); 
     }

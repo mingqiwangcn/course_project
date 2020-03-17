@@ -7,7 +7,7 @@
 #include "storage.h"
 using namespace std;
 
-int pct_95 = 632879;  //data item that need more space than this would be in ssd disk
+int pct_95 = 645168;  //data item that need more space than this would be in ssd disk
 
 extern DB* db_open(char* path, DBOpt* opt);
 extern vector<DataItem*>* db_get(DB*db, vector<string>* key_lst);
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
         
         get_db_stat(path, keep_keys, no_keep_keys);
 
-        sprintf(file_name, "part_%d_keep_keys.txt", i);
+        sprintf(file_name, "keys_realloc/part_%d_keep_keys.txt", i);
         ofstream keep_keys_file(file_name);
         j = 0;
         item_count = keep_keys.size();
@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
         }
         keep_keys_file.close();
 
-        sprintf(file_name, "part_%d_no_keep_keys.txt", i);
+        sprintf(file_name, "keys_realloc/part_%d_no_keep_keys.txt", i);
         ofstream no_keep_keys_file(file_name);
         item_count = no_keep_keys.size();
         for (j = 0 ; j < item_count; j++) {
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
     allocate_keys(keep_keys, 9, key_parts);  
 
     for (i = 1; i <= 9; i++) {
-        sprintf(file_name, "part_10_keep_keys_allocated_%d.txt", i);
+        sprintf(file_name, "keys_realloc/part_10_keep_keys_allocated_%d.txt", i);
         ofstream key_file(file_name);
         for (j = 0; j < key_parts[i-1].size(); j++) {
             key_file << key_parts[i-1][j] << endl;    
@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
         key_file.close();
     }
 
-    sprintf(file_name, "part_%d_no_keep_keys.txt", 10);
+    sprintf(file_name, "keys_realloc/part_%d_no_keep_keys.txt", 10);
     ofstream no_keep_keys_file_10(file_name);
     item_count = no_keep_keys.size();
     for (j = 0 ; j < item_count; j++) {

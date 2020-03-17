@@ -59,9 +59,14 @@ def get_args():
     return args
 
 def cls_get():
-    db_cls.open('/home/cc/md0/passage_db/', {})
     
-    with open('item_keys.json') as f:
+    db.open('/home/cc/data/part_10/large_page_data/', {})
+
+    db.close()
+'''
+    db_cls.open('/home/cc/data/', {})
+    
+    with open('/home/cc/code/fabric-qa-local/expts/keys_4.txt') as f:
         item_keys = json.load(f)
 
     t1 = time.time()
@@ -71,7 +76,7 @@ def cls_get():
     print('time %.2f' % (t2-t1))
 
     db_cls.close()
-
+'''
 
 def main():
     args = get_args();

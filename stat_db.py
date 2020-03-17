@@ -6,7 +6,7 @@ def stat():
         for line in f:
             data.append(int(line))
 
-    pct = np.percentile(data, 95)
+    pct = np.percentile(data, 95.5)
 
     total_size = 0
     data_2 = []
